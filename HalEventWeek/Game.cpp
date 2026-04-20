@@ -405,6 +405,43 @@ static void Startboss(GameState& game, const Assets& assets)
 	for (int i = 0; i < ENEMY_MAX; i++)		  game.enemies[i].alive		  = false;
 	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
 }
+//	ボス戦終了用
+static void EndBossCleanup(GameState& game, const Assets& assets)
+{
+	//	ボス本体
+	game.boss.alive = false;
+	game.bossActive = false;
+	game.bossIntro = false;
+
+	//	ボス弾
+	for (int i = 0; i < BOSS_BULLET_MAX; i++)
+	{
+		game.bossBullets[i].active = false;
+		game.bossBullets[i].fx = game.bossBullets[i].fy = 0.0f;
+		game.bossBullets[i].vx = game.bossBullets[i].vy = 0.0f;
+		game.bossBullets[i].x  = game.bossBullets[i].y = 0;
+	}
+
+	//	移動・射撃タイマー
+	game.bossMoveDirY = +1;
+	game.bossOscPhase = 0.0f;
+	game.bossTimerSpread = BOSS_FIRE_INTERVAL_SP;
+	game.bossTimerAimed = BOSS_FIRE_INTERVAL_AIM;
+
+	//	テレポート演出の後始末
+	game.teleportRequest = false;
+	if (game.tpActive)
+	{
+		game.tpActive = false;
+		game.tpPhase = 0;
+		game.tpTimer = 0;
+	}
+
+	//	BGM
+	StopBGM();
+	//	StageSelectに戻った瞬間にBGMを確実に再開できる
+	game.bgm = BgmKind::None;
+}
 // 入力から進行方向（-1,0,1）ベクトルを得る。無入力なら現状の tpDir を維持。
 static inline void DecideTeleportDir(GameState& game) {
 	int dx = game.inputX;
@@ -1486,6 +1523,7 @@ void Game(GameState& game, Assets& assets)
 
 						if (game.playerHP <= 0)
 						{
+							EndBossCleanup(game, assets);
 							game.scene = Scene::GameOver;
 						}
 						break;
@@ -1574,8 +1612,8 @@ void Game(GameState& game, Assets& assets)
 				const int bxR = bxL + game.boss.w;
 				const int bxB = bxT + game.boss.h;
 				//	自機矩形
-				const int pw = assets.player->width;
-				const int ph = assets.player->height;
+				const int pw  = assets.player->width;
+				const int ph  = assets.player->height;
 				const int pxL = game.playerX;
 				const int pyT = game.playerY;
 				const int pxR = pxL + pw;
@@ -1588,12 +1626,13 @@ void Game(GameState& game, Assets& assets)
 				if (hit)
 				{
 					game.playerHP--;
-					game.lastHPHud = -1;
+					game.lastHPHud       = -1;
 					game.invincibleTimer = INVINCIBLE_TIME;
-					game.isInvincible = true;
+					game.isInvincible    = true;
 					PlaySE(L"sound\\se\\beep.mp3");
 					if (game.playerHP <= 0)
 					{
+						EndBossCleanup(game, assets);
 						game.scene = Scene::GameOver;
 						return;
 					}
@@ -1649,7 +1688,7 @@ void Game(GameState& game, Assets& assets)
 						if (game.boss.hp <= 0)
 						{
 							game.boss.hp    = 0;
-							game.boss.alive = false;
+							EndBossCleanup(game,assets);
 							//	ボス撃破スコア追加
 							game.score += BOSS_CLEAR_BONUS;
 							game.lastScoreHud = -1;
@@ -1693,6 +1732,7 @@ void Game(GameState& game, Assets& assets)
 						game.bossBullets[i].active = false;
 						PlaySE(L"sound\\se\\beep.mp3");
 						if (game.playerHP <= 0) {
+							EndBossCleanup(game, assets);
 							game.scene = Scene::GameOver;
 							return;
 						}

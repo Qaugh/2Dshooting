@@ -58,7 +58,7 @@ void Init(GameState& game, Assets& assets)
 		assets.dash_active         = MakeTextBmp(TEXT("Dash : ACTIVE")              , 28);
 		assets.dash_n_active       = MakeTextBmp(TEXT("Dash : COOLDOWN")            , 28);
 		assets.labelNormal         = MakeTextBmp(TEXT("NORMAL")                     , 16);
-		assets.labelCharge         = MakeTextBmp(TEXT("BEAM")                       , 16);
+		assets.labelCharge         = MakeTextBmp(TEXT("CHARGE")                     , 16);
 		assets.labelSpread         = MakeTextBmp(TEXT("SPREAD")                     , 16);
 		assets.gameOver            = MakeTextBmp(TEXT("GAME OVER")                  , 48);
 		assets.retry               = MakeTextBmp(TEXT("PRESS ESC TO SELECT STAGE")  , 24);
