@@ -154,33 +154,6 @@ static void DrawWeaponInventory(const GameState& game, const Assets& assets)
 		y += it.bmp->height + HUD::kInvItemGapY;
 	}
 
-	////	アイコン配列(WeaponTypeと画像の対応)
-	//struct IconItem { WeaponType type; Bmp* bmp; };
-	//const IconItem items[] =
-	//{
-	//	{WeaponType::Normal,	 assets.uiWeaponIconNormal },
-	//	{WeaponType::ChargeBeam, assets.uiWeaponIconBeam},
-	//	{WeaponType::Spread,	 assets.uiWeaponIconSpread},
-	//};
-	//int anchorX = game.HUD_X + HUD::kInvOffsetX;				//	右上列のX
-	//int scoreH  = assets.scoreHud ? assets.scoreHud->height : 0;	//	スコアの高さを参照
-	//int anchorY = HUD::kScoreY + scoreH + HUD::kInvMarginTop;
-	//int y       = anchorY;
-	//for (const auto& it : items)
-	//{
-	//	if (!it.bmp) { continue; }	//	アイコンがなければスキップ
-	//	//	アイコン描画(左上基準)
-	//	DrawBmp(anchorX, y, it.bmp, true);
-	//	//	選択中なら枠を重ねる
-	//	if (it.type == game.currentWeapon && assets.uiWeaponSelectFrame)
-	//	{
-	//		//	フレームの位置はアイコン左上に
-	//		DrawBmp(anchorX, y, assets.uiWeaponSelectFrame, true);
-	//	}
-	//	//	次アイテムのY(アイコンの高さ + 間隔)
-	//	const int h = it.bmp->height;
-	//	y += h + HUD::kInvItemGapY;
-	//}
 }
 
 void Output(const GameState& game, const Assets& assets)
