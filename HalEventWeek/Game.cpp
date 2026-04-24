@@ -420,6 +420,7 @@ static void EndBossCleanup(GameState& game, const Assets& assets)
 		game.bossBullets[i].fx = game.bossBullets[i].fy = 0.0f;
 		game.bossBullets[i].vx = game.bossBullets[i].vy = 0.0f;
 		game.bossBullets[i].x  = game.bossBullets[i].y = 0;
+		game.bossBullets[i].type == BossBulletType::Spread;
 	}
 
 	//	移動・射撃タイマー
@@ -430,13 +431,9 @@ static void EndBossCleanup(GameState& game, const Assets& assets)
 
 	//	テレポート演出の後始末
 	game.teleportRequest = false;
-	if (game.tpActive)
-	{
-		game.tpActive = false;
-		game.tpPhase = 0;
-		game.tpTimer = 0;
-	}
-
+	game.tpActive = false;
+	game.tpPhase = 0;
+	game.tpTimer = 0;
 	//	BGM
 	StopBGM();
 	//	StageSelectに戻った瞬間にBGMを確実に再開できる
