@@ -728,7 +728,7 @@ void Game(GameState& game, Assets& assets)
 		{
 			if (game.playerHP <= 0)
 			{
-				game.scene = Scene::GameOver;
+				HandlePlayerDeath(game);
 				return;		//この後の処理をスキップ	
 			}
 		}
@@ -1520,11 +1520,7 @@ void Game(GameState& game, Assets& assets)
 						game.invincibleTimer = INVINCIBLE_TIME;
 						game.isInvincible    = true;
 
-						if (game.playerHP <= 0)
-						{
-							EndBossCleanup(game, assets);
-							game.scene = Scene::GameOver;
-						}
+
 						break;
 					}
 				}
@@ -1629,14 +1625,18 @@ void Game(GameState& game, Assets& assets)
 					game.invincibleTimer = INVINCIBLE_TIME;
 					game.isInvincible    = true;
 					PlaySE(L"sound\\se\\beep.mp3");
-					if (game.playerHP <= 0)
-					{
-						EndBossCleanup(game);
-						game.scene = Scene::GameOver;
-						return;
-					}
+					break;
 				}
 				
+			}
+		}
+
+		//!	自機HPが0になった時の処理
+		{
+			if (game.playerHP <= 0)
+			{
+				HandlePlayerDeath(game);
+				return;
 			}
 		}
 
