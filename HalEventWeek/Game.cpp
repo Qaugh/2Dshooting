@@ -1950,12 +1950,8 @@ void EndBossCleanup(GameState& game)
 //HP0→ゲームオーバー処理
 void HandlePlayerDeath(GameState& game)
 {
-	//ボス戦中に死んだ場合はボス関連をクリア
-	if (game.bossActive)
-	{
 		EndBossCleanup(game);
 		game.scene = Scene::GameOver;
-	}
 }
 //ボス撃破→ゲームクリア処理
 void HandleBossDefeat(GameState& game)
