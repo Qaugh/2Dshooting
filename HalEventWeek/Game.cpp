@@ -1986,3 +1986,13 @@ void EndBossCleanup(GameState& game)
 	game.tpTimer = 0;
 
 }
+
+void HandlePlayerDeath(GameState& game)
+{
+
+}
+
+void HandleBossDefeat(GameState& game)
+{
+
+}
