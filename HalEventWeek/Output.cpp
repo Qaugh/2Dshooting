@@ -4,40 +4,34 @@
 //	出力処理
 namespace HUD
 {
-	constexpr int kScoreY        = 20;	//	Scoreの規定Y
-	constexpr int kTpMarginY     = 6;		//	ScoreとTPの間の縦の間隔
-	constexpr int kInvItemGapY   = 6;	//	間隔Y
+	constexpr int kScoreY = 20;	//	Scoreの規定Y
+	constexpr int kTpMarginY = 6;		//	ScoreとTPの間の縦の間隔
+	constexpr int kInvItemGapY = 6;	//	間隔Y
 
 	//	stageの進捗バーの数値
-	constexpr int kStageBarL      = 600;
-	constexpr int kStageBarT      = 1;
-	constexpr int kStageBarW      = 250;
+	constexpr int kStageBarL = 600;
+	constexpr int kStageBarT = 1;
+	constexpr int kStageBarW = 250;
 	constexpr int kStagelabelGapX = 10;
 	//	インベントリの間隔
 	constexpr int kInvGapFromLabelX = 12;	//	ラベル右端からインベントリまでの余白
-	constexpr int kInvSelectPad     = 0;	//	枠画像がアイコンと同じサイズんら０でおｋ
+	constexpr int kInvSelectPad = 0;	//	枠画像がアイコンと同じサイズんら０でおｋ
 }
 
-//	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
-Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
-{
-	const TCHAR* kFont = TEXT("MS ゴシック");	//	使いたいフォントに
-	return CreateBmpString(kFont, size, bold, ggo, text);
-}
 //	HPの画像
-void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int spacing = -1, float scale = 1.0f)
+void DrawHpHearts(const GameState& gs, const Assets& assets, int x, int y, int spacing = -1, float scale = 1.0f)
 {
 	//	画像がない/未ロードなら何もしない
 	if (!assets.heartFull || !assets.heartEmpty)	return;
 	//	playerHp	/ playerMaxHpはGameStateに
-	const int maxHP    = (gs.playerMaxHP > 0) ? gs.playerMaxHP : 0;
-	int hp             = gs.playerHP;
+	const int maxHP = (gs.playerMaxHP > 0) ? gs.playerMaxHP : 0;
+	int hp = gs.playerHP;
 	if (hp < 0)	    hp = 0;
 	if (hp > maxHP) hp = maxHP;
 
 	//とりあえず等倍描画(scale != 1.0fを使うならここで拡大処理を別途用意)
 	const int iconW = assets.heartFull->width;
-	const int step  = (spacing > 0) ? spacing : (iconW + 2);
+	const int step = (spacing > 0) ? spacing : (iconW + 2);
 
 	int px = x;
 	for (int i = 0; i < maxHP; i++, px += step)
@@ -48,7 +42,7 @@ void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int s
 }
 
 //	枠と塗りつぶしでプログレスバーを描く
-inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor) 
+inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor)
 {
 	if (right - left < 4 || bottom - top < 4)	return;
 
@@ -59,8 +53,8 @@ inline void DrawProgressBarI(int left, int top, int right, int bottom, float rat
 	DrawRect(left, top, right, bottom, frameColor, false);
 
 	//	②中身(塗りつぶし=true)
-	const int innerL = left   + 1;
-	const int innerT = top    + 1;
+	const int innerL = left + 1;
+	const int innerT = top + 1;
 	const int innerR = innerL + (int)((right - left - 2) * ratio);
 	const int innerB = bottom - 1;
 
@@ -100,7 +94,7 @@ void DrawTeleportState(const GameState& game, const Assets& assets)
 	if (tpLabel)	DrawBmp(labelX, labelY, tpLabel, true);
 	//	COOLDOWNの間だけ、残り秒数を右側に表示
 	if (game.tpCDTimer > 0) {}
-	else 
+	else
 	{
 		//	READY中は数値を非表示
 		if (assets.tpCdHud)
@@ -161,7 +155,7 @@ void Output(const GameState& game, const Assets& assets)
 
 	switch (game.scene)
 	{
-	//!==========タイトル画面==========
+		//!==========タイトル画面==========
 	case Scene::Title:
 	{
 		if (assets.title)	DrawBmp(0, 0, assets.title, false);
@@ -206,7 +200,7 @@ void Output(const GameState& game, const Assets& assets)
 					const int x = (SCREEN_WIDTH - assets.infoimg->width) / 2;
 					const int y = (SCREEN_HEIGHT - assets.infoimg->height) / 2;
 					DrawBmp(x, y, assets.infoimg, /*transparent=*/true);
-					
+
 				}
 				else
 				{
@@ -226,7 +220,7 @@ void Output(const GameState& game, const Assets& assets)
 			//!	背景画像(２枚)
 			if (bg)
 			{
-				DrawBmp(game.bgX			   , UI_HEIGHT, bg, false);
+				DrawBmp(game.bgX, UI_HEIGHT, bg, false);
 				DrawBmp(game.bgX + game.bgWidth, UI_HEIGHT, bg, false);
 			}
 		}
@@ -278,7 +272,7 @@ void Output(const GameState& game, const Assets& assets)
 				}
 			}
 		}
-	
+
 		//!	弾画像
 		{
 			for (int i = 0; i < PLAYER_BULLET_MAX; i++)
@@ -287,7 +281,7 @@ void Output(const GameState& game, const Assets& assets)
 
 				//	弾の種類に応じて画像を変える
 				Bmp* bulletImg = nullptr;
-				if		(game.playerBullets[i].type == WeaponType::ChargeBeam && assets.chargeBeam)		bulletImg = assets.chargeBeam;
+				if (game.playerBullets[i].type == WeaponType::ChargeBeam && assets.chargeBeam)		bulletImg = assets.chargeBeam;
 				else if (game.playerBullets[i].type == WeaponType::Spread && assets.spreadBullet)		bulletImg = assets.spreadBullet;
 				else if (assets.bullet)																	bulletImg = assets.bullet;
 				if (bulletImg)		DrawBmp(game.playerBullets[i].x, game.playerBullets[i].y, bulletImg, true);
@@ -297,7 +291,7 @@ void Output(const GameState& game, const Assets& assets)
 
 		//!	岩画像
 		{
-			if (assets.rock) 
+			if (assets.rock)
 			{
 				for (int i = 0; i < ROCK_MAX; i++)
 				{
@@ -349,7 +343,7 @@ void Output(const GameState& game, const Assets& assets)
 					if (b)
 					{
 						//	中心合わせ(cx,cy から左上に変換)
-						int drawX = e.x - b->width  / 2;
+						int drawX = e.x - b->width / 2;
 						int drawY = e.y - b->height / 2;
 						DrawBmp(drawX, drawY, b, true);
 					}
@@ -370,7 +364,7 @@ void Output(const GameState& game, const Assets& assets)
 				int seconds = currentSeconds % 60;
 				TCHAR timeText[64];
 				_stprintf(timeText, TEXT("TIME : %02d:%02d"), minutes, seconds);
-				const_cast<Assets&>	  (assets).timeHud   = MakeTextBmp(timeText, 22);
+				const_cast<Assets&>	  (assets).timeHud = MakeTextBmp(timeText, 22);
 				const_cast<GameState&>(game).lastTimeHud = currentSeconds;
 			}
 			if (assets.timeHud)	DrawBmp(20, 20, assets.timeHud, true);
@@ -387,7 +381,7 @@ void Output(const GameState& game, const Assets& assets)
 				TCHAR sc[64];
 				_stprintf(sc, TEXT("SCORE : %06d"), game.score);
 				//	const_castを用いて生成結果をAssetsに格納
-				const_cast<Assets&>(assets).scoreHud      = MakeTextBmp(sc, 22);
+				const_cast<Assets&>(assets).scoreHud = MakeTextBmp(sc, 22);
 				//	lastScoreHud は GameState のメンバなので const_cast
 				const_cast<GameState&>(game).lastScoreHud = game.score;
 			}
@@ -403,7 +397,7 @@ void Output(const GameState& game, const Assets& assets)
 		{
 			DrawTeleportState(game, assets);
 		}
-		
+
 		//!	HPHUD
 		{
 			DrawHpHearts(game, assets,/*x=*/375,/*y=*/40,/*spacing=*/-1,/*scale=*/1.0f);
@@ -419,11 +413,11 @@ void Output(const GameState& game, const Assets& assets)
 					DeleteBmp(const_cast<Bmp**>(&assets.weaponHud));
 				}
 				TCHAR weaponText[64];
-				if		(game.currentWeapon == WeaponType::Normal)		_stprintf(weaponText, TEXT("WEAPON : NORMAL (1)"));
+				if (game.currentWeapon == WeaponType::Normal)		_stprintf(weaponText, TEXT("WEAPON : NORMAL (1)"));
 				else if (game.currentWeapon == WeaponType::ChargeBeam)	_stprintf(weaponText, TEXT("WEAPON : BEAM (2)"));
 				else if (game.currentWeapon == WeaponType::Spread)		_stprintf(weaponText, TEXT("WEAPON : SPREAD (3)"));
 
-				const_cast<Assets&>	  (assets).weaponHud   = MakeTextBmp(weaponText, 22);
+				const_cast<Assets&>	  (assets).weaponHud = MakeTextBmp(weaponText, 22);
 				const_cast<GameState&>(game).lastWeaponHud = weaponTypeNow;
 			}
 			if (assets.weaponHud)	DrawBmp(game.HUD_X, 104, assets.weaponHud, true);
@@ -432,12 +426,12 @@ void Output(const GameState& game, const Assets& assets)
 		//!	残弾数ゲージ表示
 		{
 			{
-				const int gaugeStartX  = 20;   // 左上X
-				const int gaugeStartY  = 50;   // 左上Y（通常弾の行）
+				const int gaugeStartX = 20;   // 左上X
+				const int gaugeStartY = 50;   // 左上Y（通常弾の行）
 				const int gaugeSpacing = 28;  // 行間
-				const int iconW        = 16;         // 新アイコン幅
-				const int iconH        = 25;         // 新アイコン高
-				const int step         = 22;         // 並べ間隔（必要なら微調整）
+				const int iconW = 16;         // 新アイコン幅
+				const int iconH = 25;         // 新アイコン高
+				const int step = 22;         // 並べ間隔（必要なら微調整）
 
 				// --- 通常弾 ---
 				if (assets.labelNormal) DrawBmp(gaugeStartX, gaugeStartY, assets.labelNormal, true);
@@ -453,7 +447,7 @@ void Output(const GameState& game, const Assets& assets)
 						else
 						{
 							// 何も描かない（空スロットは非表示）or 半透明表示などにしたい場合は工夫
-							if (assets.ammoIconNormalEmpty) 
+							if (assets.ammoIconNormalEmpty)
 							{
 								DrawBmp(gaugeStartX + 70 + i * step, gaugeStartY, assets.ammoIconNormalEmpty, true);
 							}
@@ -471,7 +465,7 @@ void Output(const GameState& game, const Assets& assets)
 						{
 							DrawBmp(gaugeStartX + 70 + i * step, gaugeStartY + gaugeSpacing, assets.ammoIconBeam, true);
 						}
-						else 
+						else
 						{
 							if (assets.ammoIconBeamEmpty)
 							{
@@ -502,13 +496,13 @@ void Output(const GameState& game, const Assets& assets)
 				}
 			}
 		}
-		
+
 		//!	リロード
 		{
 			if (game.normalReloading)
 			{
 				//	進捗 = (経過) / (所要)
-				float prog  = 1.0f - (float)game.normalReloadTimer / (float)NORMAL_RELOAD_FRAMES;
+				float prog = 1.0f - (float)game.normalReloadTimer / (float)NORMAL_RELOAD_FRAMES;
 				//	バーの位置とサイズ
 				const int L = 600;
 				const int T = 70;
@@ -516,7 +510,7 @@ void Output(const GameState& game, const Assets& assets)
 				const int B = T + 16;
 				//	枠 : YELLOW　/　中身 : LIGHTGREEN
 				DrawProgressBarI(L, T, R, B, prog, LIGHTBLUE, BLUE);
-			
+
 			}
 		}
 
@@ -541,7 +535,7 @@ void Output(const GameState& game, const Assets& assets)
 			{
 				//敵機が生きている場合のみ描画
 				if (!game.enemies[i].alive)	continue;
-					
+
 				//	種類で画像を切り替え
 				Bmp* ebmp = (game.enemies[i].type == EnemyType::Vertical) ? assets.enemy02 : assets.enemy01;
 				if (ebmp == nullptr)	//	フォールバック
@@ -561,15 +555,15 @@ void Output(const GameState& game, const Assets& assets)
 				if (game.enemyBullets[i].active)	DrawBmp(game.enemyBullets[i].x - 50, game.enemyBullets[i].y + 15, assets.enemyBullet, true);
 			}
 		}
-		
+
 		//!	stage1の撃破数、stage2の時間経過バー描画
 		{
 			//!	stage1の撃破数
 			if (game.stageNo == 0)
 			{
 				//!	プログレスバー
-				const int total      = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
-				float prog           = (float)game.stageKillCount / (float)total;
+				const int total = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
+				float prog = (float)game.stageKillCount / (float)total;
 				if (prog > 1.0f)prog = 1.0f;
 
 				const int L = 600;		//左
@@ -595,17 +589,17 @@ void Output(const GameState& game, const Assets& assets)
 
 			//!	stage2のスコアバー？描画
 			if (game.stageNo == 1)
-				{
+			{
 #ifdef STAGE2_SURVIVE_SECONDS
-				const int totalSec    = (STAGE2_SURVIVE_SECONDS > 0) ? STAGE2_SURVIVE_SECONDS : 60;
+				const int totalSec = (STAGE2_SURVIVE_SECONDS > 0) ? STAGE2_SURVIVE_SECONDS : 60;
 #else
-				const int totalSec    = 120 * 60; // 既定=2分
+				const int totalSec = 120 * 60; // 既定=2分
 #endif
 				const int totalFrames = totalSec * 60;
 
 				// 進捗 = 経過フレーム / 目標フレーム（0.0～1.0）
 				float prog = static_cast<float>(game.playTimeFrames) / static_cast<float>(totalFrames);
-					
+
 				if (prog > 1.0f) prog = 1.0f;
 				// 既存の見た目と同じ領域（(550,50)-(910,100)）に描画
 				const int L = 600;		//左
@@ -616,18 +610,18 @@ void Output(const GameState& game, const Assets& assets)
 				DrawProgressBarI(L, T, R, B, prog, LIGHTBLUE, CYAN);
 
 				//	ラベル
-				int nowSec                    = game.playTimeFrames / 60;
+				int nowSec = game.playTimeFrames / 60;
 				if (nowSec > totalSec) nowSec = totalSec;
-				const int mm                  = nowSec / 60;
-				const int ss                  = nowSec % 60;
+				const int mm = nowSec / 60;
+				const int ss = nowSec % 60;
 				TCHAR txt[32];
 				_stprintf(txt, TEXT("%02d:%02d / %02d:00"), mm, ss, totalSec);
 				if (Bmp* b = MakeTextBmp(txt, 20))
 				{
-					DrawBmp(R+10, T, b, true);
+					DrawBmp(R + 10, T, b, true);
 				}
 			}
-			
+
 		}
 
 		break;
@@ -936,7 +930,7 @@ void Output(const GameState& game, const Assets& assets)
 				const int bw = assets.boss->width;
 				const int bh = assets.boss->height;
 				const int bx = game.boss.x;
-				const int by = game.boss.y;	
+				const int by = game.boss.y;
 				SetPalette(assets.boss);
 				DrawBmp(bx, by, assets.boss, true);
 				SetPalette(assets.player);
@@ -962,7 +956,7 @@ void Output(const GameState& game, const Assets& assets)
 			const int B = T + 16;	//下
 
 			const int cur = (game.bossHpShown > 0) ? game.bossHpShown : 0;
-			const int max = (game.boss.maxHP > 0)  ? game.boss.maxHP  : 1;
+			const int max = (game.boss.maxHP > 0) ? game.boss.maxHP : 1;
 
 			float ratio = static_cast<float>(cur) / static_cast<float>(max);
 			if (ratio < 0.0f) ratio = 0.0f;
@@ -979,20 +973,20 @@ void Output(const GameState& game, const Assets& assets)
 
 		break;
 	}
-	
+
 	//!==========ポーズ画面==========
 	case Scene::Pause:
 	{
 		Bmp* bg = assets.background[game.stageNo];
 		if (bg)
 		{
-			DrawBmp(game.bgX               , UI_HEIGHT, bg, false);
+			DrawBmp(game.bgX, UI_HEIGHT, bg, false);
 			DrawBmp(game.bgX + game.bgWidth, UI_HEIGHT, bg, false);
 		}
 		//	案内
 		{
 			if (assets.returnGame)			DrawBmp(game.centerX - 150, 360, assets.returnGame, true);
-			if (assets.returnStageSelect)	DrawBmp(game.centerX - 96 , 400, assets.returnStageSelect, true);
+			if (assets.returnStageSelect)	DrawBmp(game.centerX - 96, 400, assets.returnStageSelect, true);
 		}
 
 		break;
@@ -1006,7 +1000,7 @@ void Output(const GameState& game, const Assets& assets)
 			Bmp* goBg = assets.background[game.stageNo];
 			if (goBg)
 			{
-				DrawBmp(game.bgX               , UI_HEIGHT, goBg, false);
+				DrawBmp(game.bgX, UI_HEIGHT, goBg, false);
 				DrawBmp(game.bgX + game.bgWidth, UI_HEIGHT, goBg, false);
 			}
 		}
@@ -1034,8 +1028,8 @@ void Output(const GameState& game, const Assets& assets)
 		//	クリアタイム表示
 		{
 			int totalSeconds = game.playTimeFrames / 60;
-			int minutes      = totalSeconds / 60;
-			int seconds      = totalSeconds % 60;
+			int minutes = totalSeconds / 60;
+			int seconds = totalSeconds % 60;
 			TCHAR surviveTime[64];
 			_stprintf(surviveTime, TEXT("SURVIVE TIME : %02d:%02d"), minutes, seconds);
 			Bmp* surviveTimeBmp = MakeTextBmp(surviveTime, 24);
@@ -1064,7 +1058,7 @@ void Output(const GameState& game, const Assets& assets)
 			Bmp* bg = assets.background[game.stageNo];
 			if (bg)
 			{
-				DrawBmp(game.bgX			   , UI_HEIGHT, bg, false);
+				DrawBmp(game.bgX, UI_HEIGHT, bg, false);
 				DrawBmp(game.bgX + game.bgWidth, UI_HEIGHT, bg, false);
 			}
 		}
@@ -1111,7 +1105,7 @@ void Output(const GameState& game, const Assets& assets)
 		break;
 	}
 	}
-	
+
 	PrintFrameBuffer();
 	FlipScreen();
 }

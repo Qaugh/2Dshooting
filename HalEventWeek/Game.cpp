@@ -2,11 +2,6 @@
 #include"audio_player.h"
 #include "Game.h"
 //	ゲームの進行処理
-Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
-{
-	const TCHAR* kFont = TEXT("MS ゴシック");
-	return CreateBmpString(kFont, size, bold, ggo, text);
-}
 
 void EndBossCleanup(GameState& game)
 {
@@ -45,8 +40,8 @@ void EndBossCleanup(GameState& game)
 //HP0→ゲームオーバー処理
 void HandlePlayerDeath(GameState& game)
 {
-		EndBossCleanup(game);
-		game.scene = Scene::GameOver;
+	EndBossCleanup(game);
+	game.scene = Scene::GameOver;
 }
 //ボス撃破→ゲームクリア処理
 void HandleBossDefeat(GameState& game)
@@ -146,7 +141,7 @@ void SpawnRock(GameState& game, const Assets& assets)
 	const int maxTry = 20;	//	重ならない位置を探す(最大20回)
 	for (int t = 0; t < maxTry; t++)
 	{
-		int y = PLAY_Y_MIN + rand() & (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - rh));
+		int y = PLAY_Y_MIN + rand() % (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - rh));
 		int x = PLAY_X_MAX + 50;
 		//既存の敵と交差しないか確認
 		bool ok = true;
@@ -487,6 +482,7 @@ inline void ComputeTeleportTarget(GameState& game, const Assets& assets) {
 	game.tpEndX = x;
 	game.tpEndY = y;
 }
+
 void Game(GameState& game, Assets& assets)
 {
 
@@ -1911,7 +1907,8 @@ void Game(GameState& game, Assets& assets)
 				if (!p.alive)	continue;	//	死んでる個体はスキップ
 
 				p.y -= 1;					//	ふわっと上に
-				if (p.life-- <= 0) {
+				if (p.life-- <= 0)
+				{
 					p.alive = false;		//	時間で非active
 				}
 			}
@@ -1920,14 +1917,14 @@ void Game(GameState& game, Assets& assets)
 			for (int i = 0; i < game.popupCount; i++)
 			{
 				auto& p = game.popups[i];
-				//p.y -= 1;	//	ふわっと上へ
+				//p.y -= 1;	ふわっと上へ
 				//	表示カウント
 				if (p.alive)
 				{
 					if (write != i)	game.popups[write] = p;
 					write++;
 				}
-				else  //		表示時間切れ：画像を開放(Assets側)
+				else  //表示時間切れ：画像を開放(Assets側)
 				{
 					if (p.slot >= 0 && (assets.popups[p.slot]))
 						DeleteBmp(&assets.popups[p.slot]);	//	内部でNULLになる想定
@@ -1961,4 +1958,3 @@ void Game(GameState& game, Assets& assets)
 
 	}
 }
-

@@ -127,6 +127,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="audio_player.cpp" />
+    <ClCompile Include="common.cpp" />
     <ClCompile Include="conioex_New.cpp" />
     <ClCompile Include="Delete.cpp" />
     <ClCompile Include="Game.cpp" />

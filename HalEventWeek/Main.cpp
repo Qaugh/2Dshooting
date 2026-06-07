@@ -3,16 +3,16 @@
 int main()
 {
 	GameState game{};
-	Assets    assets{};
+	Assets	assets{};
 
 	Init(game, assets);
 
 	while (!game.requestQuit)
 	{
-		Input (game, assets);	//	入力
-		Game  (game, assets);	//	更新
+		Input(game, assets);	//	入力
+		Game(game, assets);	//	更新
 		Output(game, assets);	//	描画
-		Sleep (16);
+		Sleep(16);
 	}
 
 	Delete(game, assets);

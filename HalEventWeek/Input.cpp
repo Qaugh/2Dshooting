@@ -12,7 +12,7 @@ void Input(GameState& game, const Assets& assets)
 		GetKeyAll();
 
 		//!	Enterキーでステージセレクトへ
-		if (ChkKeyEdge(PK_ENTER))	game.scene       = Scene::StageSelect;
+		if (ChkKeyEdge(PK_ENTER))	game.scene = Scene::StageSelect;
 
 		{
 			//PlayBGM(L"sound\\bgm\\bgm.mp3");
@@ -43,7 +43,7 @@ void Input(GameState& game, const Assets& assets)
 		{
 			PlayBGM(BGM_PATH_NORMAL);
 			game.bgm = BgmKind::Normal;
-			
+
 		}
 
 
@@ -52,7 +52,7 @@ void Input(GameState& game, const Assets& assets)
 
 		//!	ヘルプ画面表示
 		if (ChkKeyEdge(PK_TAB))	game.showHelp = !game.showHelp;
-		
+
 		if (game.showHelp) break;
 
 		//!	ゲーム開始時に諸々リセット
@@ -68,24 +68,24 @@ void Input(GameState& game, const Assets& assets)
 
 			//	HP
 			{
-				game.playerHP        = PLAYER_MAX_HP;
+				game.playerHP = PLAYER_MAX_HP;
 				game.invincibleTimer = 0;
-				game.isInvincible    = false;
-				game.lastHPHud       = -1;
+				game.isInvincible = false;
+				game.lastHPHud = -1;
 			}
 
 			//	スコア
 			{
-				game.score        = 0;
+				game.score = 0;
 				game.lastScoreHud = -1;
 			}
 
 			//	経過時間
 			{
 				game.playTimeFrames = 0;
-				game.lastTimeHud    = -1;
+				game.lastTimeHud = -1;
 				game.stageKillCount = 0;
-				game.stageCleared   = false;
+				game.stageCleared = false;
 			}
 
 			//	自機の位置
@@ -96,12 +96,12 @@ void Input(GameState& game, const Assets& assets)
 
 			//	残弾数
 			{
-				game.ammoNormal   = MAX_AMMO_NORMAL;
-				game.ammoBeam     = MAX_AMMO_BEAM;
-				game.ammoSpread   = MAX_AMMO_SPREAD;
+				game.ammoNormal = MAX_AMMO_NORMAL;
+				game.ammoBeam = MAX_AMMO_BEAM;
+				game.ammoSpread = MAX_AMMO_SPREAD;
 				game.fireCooldown = 0;
 			}
-			
+
 			//	新弾システム
 			{
 				for (int i = 0; i < PLAYER_BULLET_MAX; i++)
@@ -124,27 +124,27 @@ void Input(GameState& game, const Assets& assets)
 					int eh = ebmp ? ebmp->height : 0;
 
 					// 初期状態は出さない
-					game.enemies[i].x          = 0;
-					game.enemies[i].y          = 0;
-					game.enemies[i].alive      = false;     // ★ 変更：最初はfalse
-					game.enemies[i].type       = (i % 2 == 0) ? EnemyType::Normal : EnemyType::Vertical;
+					game.enemies[i].x = 0;
+					game.enemies[i].y = 0;
+					game.enemies[i].alive = false;     // ★ 変更：最初はfalse
+					game.enemies[i].type = (i % 2 == 0) ? EnemyType::Normal : EnemyType::Vertical;
 					game.enemies[i].shootTimer = 0;
-					game.enemies[i].vy         = 0;
+					game.enemies[i].vy = 0;
 				}
 				// 敵スポーンタイマー初期化
 				game.enemySpawnTimer = ENEMY_SPAWN_MIN + rand() % (ENEMY_SPAWN_MAX - ENEMY_SPAWN_MIN + 1); // ★ 追加
 			}
-		
+
 			//	敵弾
 			{
 				for (int i = 0; i < ENEMY_BULLET_MAX; i++)
 				{
-					game.enemyBullets[i].x      = 0;
-					game.enemyBullets[i].y      = 0;
+					game.enemyBullets[i].x = 0;
+					game.enemyBullets[i].y = 0;
 					game.enemyBullets[i].active = false;
 				}
 			}
-	
+
 			//	岩・ピックアップアイテム初期化
 			{
 				for (int i = 0; i < ROCK_MAX; i++)
@@ -153,11 +153,11 @@ void Input(GameState& game, const Assets& assets)
 				}
 				for (int i = 0; i < PICKUP_MAX; i++)
 				{
-					game.pickups[i].x      = 0;
-					game.pickups[i].y      = 0;
-					game.pickups[i].vy     = PICKUP_FALL_SPEED;
+					game.pickups[i].x = 0;
+					game.pickups[i].y = 0;
+					game.pickups[i].vy = PICKUP_FALL_SPEED;
 					game.pickups[i].active = false;
-					game.pickups[i].type   = WeaponType::Normal;
+					game.pickups[i].type = WeaponType::Normal;
 				}
 				//	初回スポーンタイマー(ランダム)
 				game.rockSpawnTimer = ROCK_SPAWN_MIN + rand() % (ROCK_SPAWN_MAX - ROCK_SPAWN_MIN + 1);
@@ -188,9 +188,9 @@ void Input(GameState& game, const Assets& assets)
 		{
 			game.inputX = 0;
 			game.inputY = 0;
-			if (ChkKeyPress(PK_UP)    || ChkKeyPress(PK_W))	game.inputY -= 1;
-			if (ChkKeyPress(PK_DOWN)  || ChkKeyPress(PK_S))	game.inputY += 1;
-			if (ChkKeyPress(PK_LEFT)  || ChkKeyPress(PK_A))	game.inputX -= 1;
+			if (ChkKeyPress(PK_UP) || ChkKeyPress(PK_W))	game.inputY -= 1;
+			if (ChkKeyPress(PK_DOWN) || ChkKeyPress(PK_S))	game.inputY += 1;
+			if (ChkKeyPress(PK_LEFT) || ChkKeyPress(PK_A))	game.inputX -= 1;
 			if (ChkKeyPress(PK_RIGHT) || ChkKeyPress(PK_D))	game.inputX += 1;
 		}
 
@@ -240,9 +240,9 @@ void Input(GameState& game, const Assets& assets)
 		{
 			game.inputX = 0;
 			game.inputY = 0;
-			if (ChkKeyPress(PK_UP)    || ChkKeyPress(PK_W))	game.inputY -= 1;
-			if (ChkKeyPress(PK_DOWN)  || ChkKeyPress(PK_S))	game.inputY += 1;
-			if (ChkKeyPress(PK_LEFT)  || ChkKeyPress(PK_A))	game.inputX -= 1;
+			if (ChkKeyPress(PK_UP) || ChkKeyPress(PK_W))	game.inputY -= 1;
+			if (ChkKeyPress(PK_DOWN) || ChkKeyPress(PK_S))	game.inputY += 1;
+			if (ChkKeyPress(PK_LEFT) || ChkKeyPress(PK_A))	game.inputX -= 1;
 			if (ChkKeyPress(PK_RIGHT) || ChkKeyPress(PK_D))	game.inputX += 1;
 		}
 
@@ -285,12 +285,12 @@ void Input(GameState& game, const Assets& assets)
 		if (ChkKeyEdge(PK_Z) || ChkKeyEdge(PK_SP))	game.scene = Scene::Play;
 		//	Z か ESC でステージセレクト画面
 		if (ChkKeyEdge(PK_X) || ChkKeyEdge(PK_ESC))
-		{ 
+		{
 			if (game.bossActive)
 			{
 				EndBossCleanup(game);
 			}
-			game.scene = Scene::StageSelect; 
+			game.scene = Scene::StageSelect;
 		}
 		break;
 	}

@@ -404,4 +404,4 @@ void Game  (	  GameState&,		Assets&);
 void Output(const GameState&, const Assets&);
 void Delete(      GameState&,       Assets&);
 
-Bmp* MakeTextBmp(const TCHAR*, int, int, int);
+Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP);
