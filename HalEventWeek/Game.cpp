@@ -406,40 +406,6 @@ static void Startboss(GameState& game, const Assets& assets)
 	for (int i = 0; i < ENEMY_MAX; i++)		  game.enemies[i].alive = false;
 	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
 }
-//	ボス戦終了用
-void EndBossCleanup(GameState& game, const Assets& assets)
-{
-	//	ボス本体
-	game.boss.alive = false;
-	game.bossActive = false;
-	game.bossIntro = false;
-
-	//	ボス弾
-	for (int i = 0; i < BOSS_BULLET_MAX; i++)
-	{
-		game.bossBullets[i].active = false;
-		game.bossBullets[i].fx = game.bossBullets[i].fy = 0.0f;
-		game.bossBullets[i].vx = game.bossBullets[i].vy = 0.0f;
-		game.bossBullets[i].x = game.bossBullets[i].y = 0;
-		game.bossBullets[i].type == BossBulletType::Spread;
-	}
-
-	//	移動・射撃タイマー
-	game.bossMoveDirY = +1;
-	game.bossOscPhase = 0.0f;
-	game.bossTimerSpread = BOSS_FIRE_INTERVAL_SP;
-	game.bossTimerAimed = BOSS_FIRE_INTERVAL_AIM;
-
-	//	テレポート演出の後始末
-	game.teleportRequest = false;
-	game.tpActive = false;
-	game.tpPhase = 0;
-	game.tpTimer = 0;
-	//	BGM
-	StopBGM();
-	//	StageSelectに戻った瞬間にBGMを確実に再開できる
-	game.bgm = BgmKind::None;
-}
 // 入力から進行方向（-1,0,1）ベクトルを得る。無入力なら現状の tpDir を維持。
 static inline void DecideTeleportDir(GameState& game) {
 	int dx = game.inputX;
@@ -1720,11 +1686,6 @@ void Game(GameState& game, Assets& assets)
 						game.isInvincible = true;
 						game.bossBullets[i].active = false;
 						PlaySE(L"sound\\se\\beep.mp3");
-						if (game.playerHP <= 0) {
-							EndBossCleanup(game, assets);
-							game.scene = Scene::GameOver;
-							return;
-						}
 						break;
 					}
 				}
@@ -1992,6 +1953,7 @@ void HandlePlayerDeath(GameState& game)
 	//ボス戦中に死んだ場合はボス関連をクリア
 	if (game.bossActive)
 	{
+		EndBossCleanup(game);
 		game.scene = Scene::GameOver;
 	}
 }
