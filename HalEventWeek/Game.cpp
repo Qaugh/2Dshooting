@@ -1996,7 +1996,7 @@ void HandlePlayerDeath(GameState& game)
 		game.scene = Scene::GameOver;
 	}
 }
-
+//ボス撃破→ゲームクリア処理
 void HandleBossDefeat(GameState& game)
 {
 	EndBossCleanup(game);	//ボス関連まとめてクリア
