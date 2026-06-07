@@ -1536,7 +1536,7 @@ void HandleBossDefeat(GameState& game)
 
 //	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
 //	画像プールから空きスロットを探す(見つかればその添え字、なかったら-1)
-static int AcquirePopupSlot(const Assets& assets)
+int AcquirePopupSlot(const Assets& assets)
 {
 	for (int i = 0; i < GameState::POPUP_MAX; i++)
 	{
@@ -1545,7 +1545,7 @@ static int AcquirePopupSlot(const Assets& assets)
 	return -1;
 }
 // （オプション）通常弾のリロード開始
-static inline void StartNormalReload(GameState& game)
+inline void StartNormalReload(GameState& game)
 {
 #ifdef NORMAL_RELOAD_FRAMES
 	if (!game.normalReloading && game.ammoNormal < MAX_AMMO_NORMAL) {
@@ -1563,12 +1563,12 @@ static inline void StartNormalReload(GameState& game)
 #endif
 }
 //	矩形交差(AABB)
-static inline bool Intersects(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
+inline bool Intersects(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
 {
 	return (ax < bx + bw) && (ax + aw > bx) && (ay < by + bh) && (ay + ah > by);
 }
 //	矩形を取得
-static inline void GetEnemyRect(const GameState& game, const Assets& assets, int i, int& ex, int& ey, int& ew, int& eh)
+inline void GetEnemyRect(const GameState& game, const Assets& assets, int i, int& ex, int& ey, int& ew, int& eh)
 {
 	ex = game.enemies[i].x;
 	ey = game.enemies[i].y;
@@ -1577,7 +1577,7 @@ static inline void GetEnemyRect(const GameState& game, const Assets& assets, int
 	ew = ebmp ? ebmp->width : 32;
 	eh = ebmp ? ebmp->height : 32;
 }
-static inline void GetRockRect(const GameState& game, const Assets& assets, int idx, int& rx, int& ry, int& rw, int& rh)
+inline void GetRockRect(const GameState& game, const Assets& assets, int idx, int& rx, int& ry, int& rw, int& rh)
 {
 	rx = game.rocks[idx].x;
 	ry = game.rocks[idx].y;
@@ -1585,34 +1585,34 @@ static inline void GetRockRect(const GameState& game, const Assets& assets, int 
 	rh = assets.rock ? assets.rock->height : 40;
 }
 //	空スロット検索
-static int FindFreeBulletSlot(GameState& game)
+int FindFreeBulletSlot(GameState& game)
 {
 	for (int i = 0; i < PLAYER_BULLET_MAX; i++)	if (!game.playerBullets[i].active)	return i;
 
 	return -1;	//	空き無し
 }
-static int FindFreeRockSlot(GameState& game)
+int FindFreeRockSlot(GameState& game)
 {
 	for (int i = 0; i < ROCK_MAX; ++i)			if (!game.rocks[i].alive)			return i;
 	return -1;
 }
-static int FindFreePickupSlot(GameState& game)
+int FindFreePickupSlot(GameState& game)
 {
 	for (int i = 0; i < PICKUP_MAX; ++i)		if (!game.pickups[i].active)		return i;
 	return -1;
 }
-static int FindFreeEnemySlot(GameState& game)
+int FindFreeEnemySlot(GameState& game)
 {
 	for (int i = 0; i < ENEMY_MAX; ++i)			if (!game.enemies[i].alive)			return i;
 	return -1;
 }
-static int FindFreeBossBullet(const GameState& game)
+int FindFreeBossBullet(const GameState& game)
 {
 	for (int i = 0; i < BOSS_BULLET_MAX; ++i)	if (!game.bossBullets[i].active)	return i;
 	return -1;
 }
 //	物体スポーン
-static void SpawnRock(GameState& game, const Assets& assets)
+void SpawnRock(GameState& game, const Assets& assets)
 {
 	int slot = FindFreeRockSlot(game);
 	if (slot < 0)	return;
@@ -1643,7 +1643,7 @@ static void SpawnRock(GameState& game, const Assets& assets)
 		}
 	}
 }
-static void SpawnEnemy(GameState& game, const Assets& assets)
+void SpawnEnemy(GameState& game, const Assets& assets)
 {
 	int slot = FindFreeEnemySlot(game);
 	if (slot < 0) return; // 空きがなければ出さない
@@ -1684,7 +1684,7 @@ static void SpawnEnemy(GameState& game, const Assets& assets)
 		}
 	}
 }
-static void SpawnPickup(GameState& game, WeaponType type, int x, int y)
+void SpawnPickup(GameState& game, WeaponType type, int x, int y)
 {
 	int slot = FindFreePickupSlot(game);
 	if (slot < 0) return;
@@ -1696,7 +1696,7 @@ static void SpawnPickup(GameState& game, WeaponType type, int x, int y)
 	game.pickups[slot].type = type;
 	game.pickups[slot].life = 300;	//	５秒 : 60fps
 }
-static void SpawnExplosion(GameState& game, const Assets& assets, int cx, int cy)
+void SpawnExplosion(GameState& game, const Assets& assets, int cx, int cy)
 {
 	if (assets.explosionCount <= 0)	return;
 	for (int i = 0; i < GameState::EXPLOSION_MAX; i++)
@@ -1713,7 +1713,7 @@ static void SpawnExplosion(GameState& game, const Assets& assets, int cx, int cy
 	}
 }
 // 7方向拡散（中心角を0°として ±(N-1)/2 * step）
-static void SpawnBossSpread(GameState& game)
+void SpawnBossSpread(GameState& game)
 {
 	const int sx = game.boss.x - 8;
 	const int sy = game.boss.y + game.boss.h / 2;
@@ -1735,7 +1735,7 @@ static void SpawnBossSpread(GameState& game)
 	}
 }
 // 自機狙い（ボス中心→プレイヤー中心方向へ正規化して発射）
-static void SpawnBossAimed(GameState& game, const Assets& assets)
+void SpawnBossAimed(GameState& game, const Assets& assets)
 {
 	int slot = FindFreeBossBullet(game);
 	if (slot < 0) return;
@@ -1815,7 +1815,7 @@ static void SpawnBossAimed(GameState& game, const Assets& assets)
 	game.bossBullets[slot].type = BossBulletType::Aimed;
 }
 // 移動＆画面外消去
-static void UpdateBossBullets(GameState& game, const Assets& assets)
+void UpdateBossBullets(GameState& game, const Assets& assets)
 {
 	(void)assets;
 	for (int i = 0; i < BOSS_BULLET_MAX; ++i)
@@ -1834,7 +1834,7 @@ static void UpdateBossBullets(GameState& game, const Assets& assets)
 	}
 }
 //	射撃処理
-static void ProcessFireRequest(GameState& game, const Assets& assets)
+void ProcessFireRequest(GameState& game, const Assets& assets)
 {
 	//	クールダウン中は何もせず終了
 	if (game.fireCooldown > 0)	return;
@@ -1901,7 +1901,7 @@ static void ProcessFireRequest(GameState& game, const Assets& assets)
 	}
 }
 //	ボス戦開始用
-static void Startboss(GameState& game, const Assets& assets)
+void Startboss(GameState& game, const Assets& assets)
 {
 	game.scene = Scene::Boss;
 	if (assets.boss)
@@ -1933,7 +1933,7 @@ static void Startboss(GameState& game, const Assets& assets)
 	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
 }
 // 入力から進行方向（-1,0,1）ベクトルを得る。無入力なら現状の tpDir を維持。
-static inline void DecideTeleportDir(GameState& game) {
+inline void DecideTeleportDir(GameState& game) {
 	int dx = game.inputX;
 	int dy = game.inputY;
 	if (dx == 0 && dy == 0) {
@@ -1948,7 +1948,7 @@ static inline void DecideTeleportDir(GameState& game) {
 	game.tpDirY = dy;
 }
 // プレイ領域に収まるよう目的地を計算・クランプ
-static inline void ComputeTeleportTarget(GameState& game, const Assets& assets) {
+inline void ComputeTeleportTarget(GameState& game, const Assets& assets) {
 	const int pw = assets.player ? assets.player->width : 32;
 	const int ph = assets.player ? assets.player->height : 32;
 	int x = game.playerX + game.tpDirX * TP_DISTANCE;

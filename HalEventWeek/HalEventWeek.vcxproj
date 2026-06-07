@@ -139,7 +139,11 @@
     <ClInclude Include="audio_player.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="conioex_New.h" />
+    <ClInclude Include="Game.h" />
+    <ClInclude Include="Init.h" />
+    <ClInclude Include="Input.h" />
     <ClInclude Include="miniaudio.h" />
+    <ClInclude Include="Output.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

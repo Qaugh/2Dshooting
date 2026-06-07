@@ -309,7 +309,7 @@ void Init(GameState& game, Assets& assets)
 }
 
 //	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
-static Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
+Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
 {
 	const TCHAR* kFont = TEXT("MS ゴシック");	//	使いたいフォントに
 	return CreateBmpString(kFont, size, bold, ggo, text);

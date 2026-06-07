@@ -980,13 +980,13 @@ void Output(const GameState& game, const Assets& assets)
 }
 
 //	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
-static Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
+Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
 {
 	const TCHAR* kFont = TEXT("MS ゴシック");	//	使いたいフォントに
 	return CreateBmpString(kFont, size, bold, ggo, text);
 }
 //	HPの画像
-static void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int spacing = -1, float scale = 1.0f)
+void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int spacing = -1, float scale = 1.0f)
 {
 	//	画像がない/未ロードなら何もしない
 	if (!assets.heartFull || !assets.heartEmpty)	return;
@@ -1009,7 +1009,7 @@ static void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y
 }
 
 //	枠と塗りつぶしでプログレスバーを描く
-static inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor) 
+inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor) 
 {
 	if (right - left < 4 || bottom - top < 4)	return;
 
@@ -1032,7 +1032,7 @@ static inline void DrawProgressBarI(int left, int top, int right, int bottom, fl
 }
 
 //	TP状態の描画
-static void DrawTeleportState(const GameState& game, const Assets& assets)
+void DrawTeleportState(const GameState& game, const Assets& assets)
 {
 	int scoreH = 0;
 	if (assets.scoreHud)	scoreH = assets.scoreHud->height;
@@ -1073,7 +1073,7 @@ static void DrawTeleportState(const GameState& game, const Assets& assets)
 }
 
 //	武器インベントリ描画
-static void DrawWeaponInventory(const GameState& game, const Assets& assets)
+void DrawWeaponInventory(const GameState& game, const Assets& assets)
 {
 	//	stage1撃破ラベルの文字列を既存t同じフォントサイズで生成し、幅だけ取得
 	int total = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
