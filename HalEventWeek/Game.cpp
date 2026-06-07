@@ -1987,12 +1987,21 @@ void EndBossCleanup(GameState& game)
 
 }
 
+//HP0→ゲームオーバー処理
 void HandlePlayerDeath(GameState& game)
 {
-
+	//ボス戦中に死んだ場合はボス関連をクリア
+	if (game.bossActive)
+	{
+		game.scene = Scene::GameOver;
+	}
 }
 
 void HandleBossDefeat(GameState& game)
 {
-
+	EndBossCleanup(game);	//ボス関連まとめてクリア
+	game.score += BOSS_CLEAR_BONUS;
+	game.lastScoreHud = -1;
+	game.scene = Scene::GameClear;
+	PlaySE(L"sound\\se\\game_Clear.mp3");
 }
