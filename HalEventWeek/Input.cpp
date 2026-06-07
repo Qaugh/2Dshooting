@@ -52,7 +52,7 @@ void Input(GameState& game, const Assets& assets)
 		if (ChkKeyEdge(PK_ENTER))	game.scene       = Scene::StageSelect;
 
 		{
-			PlayBGM(L"sound\\bgm\\bgm.mp3");
+			//PlayBGM(L"sound\\bgm\\bgm.mp3");
 
 			// まだ通常BGMでなければ開始（ループ想定）
 			if (game.bgm != BgmKind::Normal)

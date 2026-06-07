@@ -115,8 +115,6 @@ static void DrawTeleportState(const GameState& game, const Assets& assets)
 //	武器インベントリ描画
 static void DrawWeaponInventory(const GameState& game, const Assets& assets)
 {
-	//	stage1以外は何もしない
-	if (game.stageNo != 0)	return;
 	//	stage1撃破ラベルの文字列を既存t同じフォントサイズで生成し、幅だけ取得
 	int total = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
 	TCHAR txt[32];
@@ -134,7 +132,9 @@ static void DrawWeaponInventory(const GameState& game, const Assets& assets)
 	const int T = HUD::kStageBarT;
 	const int R = L + HUD::kStageBarW;
 	const int labelX = R + HUD::kStagelabelGapX;
-	const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX;
+	const int extraOffsetX = (game.stageNo == 1) ? 60 : 0;
+	const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX + extraOffsetX;
+	//const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX;
 	const int anchorY = T;
 	struct IconItem { WeaponType type; Bmp* bmp; };
 	const IconItem items[] = {

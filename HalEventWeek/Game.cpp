@@ -1,5 +1,6 @@
 ﻿#include "common.h"
 #include"audio_player.h"
+#include "Game.h"
 //	ゲームの進行処理
 
 //	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
@@ -1949,4 +1950,38 @@ void Game(GameState& game, Assets& assets)
 	}
 
 	}
+}
+
+void EndBossCleanup(GameState& game)
+{
+	//ボス状態を終了扱いへ
+	game.boss.alive = false;
+	game.bossActive = false;
+	game.bossIntro = false;
+
+	//ボス弾を全消去
+	for (int i = 0; i < BOSS_BULLET_MAX; i++)
+	{
+		game.bossBullets[i].active = false;
+		game.bossBullets[i].x = 0;
+		game.bossBullets[i].y = 0;
+		game.bossBullets[i].fx = 0.0f;
+		game.bossBullets[i].fy = 0.0f;
+		game.bossBullets[i].vx = 0.0f;
+		game.bossBullets[i].vy = 0.0f;
+		game.bossBullets[i].type = BossBulletType::Spread;
+	}
+
+	//ボスの移動・射撃タイマーを初期値へ
+	game.bossMoveDirY = +1;
+	game.bossOscPhase = 0.0f;
+	game.bossTimerSpread = BOSS_FIRE_INTERVAL_SP;
+	game.bossTimerAimed = BOSS_FIRE_INTERVAL_AIM;
+
+	//TP演出が残っていたら止める
+	game.teleportRequest = false;
+	game.tpActive = false;
+	game.tpPhase = 0;
+	game.tpTimer = 0;
+
 }
