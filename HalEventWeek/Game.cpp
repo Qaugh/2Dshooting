@@ -1683,18 +1683,8 @@ void Game(GameState& game, Assets& assets)
 						if (game.playerBullets[i].type != WeaponType::ChargeBeam)
 							game.playerBullets[i].active = false;
 
-						//	撃破 → クリア
-						if (game.boss.hp <= 0)
-						{
-							game.boss.hp = 0;
-							EndBossCleanup(game);
-							//	ボス撃破スコア追加
-							game.score += BOSS_CLEAR_BONUS;
-							game.lastScoreHud = -1;
-							game.scene = Scene::GameClear;
-							PlaySE(L"sound\\se\\game_clear.mp3");
-							break;	//	以後の弾は無視
-						}
+						break;	//	以後の弾は無視
+
 					}
 				}
 			}
@@ -1776,6 +1766,15 @@ void Game(GameState& game, Assets& assets)
 					game.boss.y = bottom;
 					game.bossMoveDirY = -1;
 				}
+			}
+		}
+
+		//!	ボス撃破判定
+		{
+			if (game.boss.hp <= 0)
+			{
+				game.boss.hp = 0;
+				HandleBossDefeat(game);
 			}
 		}
 
