@@ -2,7 +2,491 @@
 #include"audio_player.h"
 #include "Game.h"
 //	ゲームの進行処理
+Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
+{
+	const TCHAR* kFont = TEXT("MS ゴシック");
+	return CreateBmpString(kFont, size, bold, ggo, text);
+}
 
+void EndBossCleanup(GameState& game)
+{
+	//ボス状態を終了扱いへ
+	game.boss.alive = false;
+	game.bossActive = false;
+	game.bossIntro = false;
+
+	//ボス弾を全消去
+	for (int i = 0; i < BOSS_BULLET_MAX; i++)
+	{
+		game.bossBullets[i].active = false;
+		game.bossBullets[i].x = 0;
+		game.bossBullets[i].y = 0;
+		game.bossBullets[i].fx = 0.0f;
+		game.bossBullets[i].fy = 0.0f;
+		game.bossBullets[i].vx = 0.0f;
+		game.bossBullets[i].vy = 0.0f;
+		game.bossBullets[i].type = BossBulletType::Spread;
+	}
+
+	//ボスの移動・射撃タイマーを初期値へ
+	game.bossMoveDirY = +1;
+	game.bossOscPhase = 0.0f;
+	game.bossTimerSpread = BOSS_FIRE_INTERVAL_SP;
+	game.bossTimerAimed = BOSS_FIRE_INTERVAL_AIM;
+
+	//TP演出が残っていたら止める
+	game.teleportRequest = false;
+	game.tpActive = false;
+	game.tpPhase = 0;
+	game.tpTimer = 0;
+
+}
+
+//HP0→ゲームオーバー処理
+void HandlePlayerDeath(GameState& game)
+{
+		EndBossCleanup(game);
+		game.scene = Scene::GameOver;
+}
+//ボス撃破→ゲームクリア処理
+void HandleBossDefeat(GameState& game)
+{
+	EndBossCleanup(game);	//ボス関連まとめてクリア
+	game.score += BOSS_CLEAR_BONUS;
+	game.lastScoreHud = -1;
+	game.scene = Scene::GameClear;
+	PlaySE(L"sound\\se\\game_Clear.mp3");
+}
+
+//	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
+//	画像プールから空きスロットを探す(見つかればその添え字、なかったら-1)
+int AcquirePopupSlot(const Assets& assets)
+{
+	for (int i = 0; i < GameState::POPUP_MAX; i++)
+	{
+		if (assets.popups[i] == nullptr)	return i;
+	}
+	return -1;
+}
+// （オプション）通常弾のリロード開始
+inline void StartNormalReload(GameState& game)
+{
+#ifdef NORMAL_RELOAD_FRAMES
+	if (!game.normalReloading && game.ammoNormal < MAX_AMMO_NORMAL) {
+		game.normalReloading = true;
+		game.normalReloadTimer = NORMAL_RELOAD_FRAMES; // 例: 60
+		game.lastWeaponHud = -1;
+		PlaySE(L"sound\\se\\reload.mp3");
+	}
+#else
+	// 即時リロード派ならこちら
+	if (game.ammoNormal < MAX_AMMO_NORMAL) {
+		game.ammoNormal = MAX_AMMO_NORMAL;
+		game.lastWeaponHud = -1;
+	}
+#endif
+}
+//	矩形交差(AABB)
+inline bool Intersects(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
+{
+	return (ax < bx + bw) && (ax + aw > bx) && (ay < by + bh) && (ay + ah > by);
+}
+//	矩形を取得
+inline void GetEnemyRect(const GameState& game, const Assets& assets, int i, int& ex, int& ey, int& ew, int& eh)
+{
+	ex = game.enemies[i].x;
+	ey = game.enemies[i].y;
+	Bmp* ebmp = (game.enemies[i].type == EnemyType::Vertical) ? assets.enemy02 : assets.enemy01;
+	if (!ebmp) ebmp = assets.enemy01;	//	フォールバック
+	ew = ebmp ? ebmp->width : 32;
+	eh = ebmp ? ebmp->height : 32;
+}
+inline void GetRockRect(const GameState& game, const Assets& assets, int idx, int& rx, int& ry, int& rw, int& rh)
+{
+	rx = game.rocks[idx].x;
+	ry = game.rocks[idx].y;
+	rw = assets.rock ? assets.rock->width : 40;
+	rh = assets.rock ? assets.rock->height : 40;
+}
+//	空スロット検索
+int FindFreeBulletSlot(GameState& game)
+{
+	for (int i = 0; i < PLAYER_BULLET_MAX; i++)	if (!game.playerBullets[i].active)	return i;
+
+	return -1;	//	空き無し
+}
+int FindFreeRockSlot(GameState& game)
+{
+	for (int i = 0; i < ROCK_MAX; ++i)			if (!game.rocks[i].alive)			return i;
+	return -1;
+}
+int FindFreePickupSlot(GameState& game)
+{
+	for (int i = 0; i < PICKUP_MAX; ++i)		if (!game.pickups[i].active)		return i;
+	return -1;
+}
+int FindFreeEnemySlot(GameState& game)
+{
+	for (int i = 0; i < ENEMY_MAX; ++i)			if (!game.enemies[i].alive)			return i;
+	return -1;
+}
+int FindFreeBossBullet(const GameState& game)
+{
+	for (int i = 0; i < BOSS_BULLET_MAX; ++i)	if (!game.bossBullets[i].active)	return i;
+	return -1;
+}
+//	物体スポーン
+void SpawnRock(GameState& game, const Assets& assets)
+{
+	int slot = FindFreeRockSlot(game);
+	if (slot < 0)	return;
+	const int rh = assets.rock ? assets.rock->height : 40;//画像未設定時のフォールバック高さ
+	const int rw = assets.rock ? assets.rock->height : 40;
+
+	const int maxTry = 20;	//	重ならない位置を探す(最大20回)
+	for (int t = 0; t < maxTry; t++)
+	{
+		int y = PLAY_Y_MIN + rand() & (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - rh));
+		int x = PLAY_X_MAX + 50;
+		//既存の敵と交差しないか確認
+		bool ok = true;
+		for (int i = 0; i < ENEMY_MAX; i++)
+		{
+			if (!game.enemies[i].alive)	continue;
+			int ex, ey, ew, eh;
+			GetEnemyRect(game, assets, i, ex, ey, ew, eh);
+			if (Intersects(x, y, rw, rh, ex, ey, ew, eh))
+			{
+				ok = false; break;
+			}
+		}
+		if (ok)
+		{
+			game.rocks[slot] = { x,y,/*hp*/3,/*alive*/true };
+			return;
+		}
+	}
+}
+void SpawnEnemy(GameState& game, const Assets& assets)
+{
+	int slot = FindFreeEnemySlot(game);
+	if (slot < 0) return; // 空きがなければ出さない
+
+	// 種類：Normal/Vertical を適当に振り分け
+	EnemyType t = (rand() % 2 == 0) ? EnemyType::Normal : EnemyType::Vertical;
+	Bmp* ebmp = (t == EnemyType::Vertical) ? assets.enemy02 : assets.enemy01;
+	const int ew = ebmp ? ebmp->width : 32;
+	const int eh = ebmp ? ebmp->height : 32;
+
+	const int maxTry = 20;	//	重ならない位置を探す(最大20回)
+	for (int tr = 0; tr < maxTry; tr++)
+	{
+		int x = PLAY_X_MAX + 50;
+		int y = PLAY_Y_MIN + rand() % (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - eh));
+
+		//	既存の岩と交差しないか確認
+		bool ok = true;
+		for (int r = 0; r < ROCK_MAX; r++)
+		{
+			if (!game.rocks[r].alive)	continue;
+			int rx, ry, rw, rh;
+			GetRockRect(game, assets, r, rx, ry, rw, rh);
+			if (Intersects(x, y, ew, eh, rx, ry, rw, rh))
+			{
+				ok = false; break;
+			}
+		}
+		if (ok)
+		{
+			game.enemies[slot].x = x;
+			game.enemies[slot].y = y;
+			game.enemies[slot].type = t;
+			game.enemies[slot].alive = true;
+			game.enemies[slot].shootTimer = 60 + rand() % 120;
+			game.enemies[slot].vy = (t == EnemyType::Vertical) ? ((rand() % 2) ? 2 : -2) : 0;
+			return;
+		}
+	}
+}
+void SpawnPickup(GameState& game, WeaponType type, int x, int y)
+{
+	int slot = FindFreePickupSlot(game);
+	if (slot < 0) return;
+	game.pickups[slot].active = true;
+	game.pickups[slot].x = x;
+	game.pickups[slot].y = y;
+	game.pickups[slot].vx = -PICKUP_DRIFT_SPEED;
+	game.pickups[slot].vy = PICKUP_FALL_SPEED;
+	game.pickups[slot].type = type;
+	game.pickups[slot].life = 300;	//	５秒 : 60fps
+}
+void SpawnExplosion(GameState& game, const Assets& assets, int cx, int cy)
+{
+	if (assets.explosionCount <= 0)	return;
+	for (int i = 0; i < GameState::EXPLOSION_MAX; i++)
+	{
+		if (!game.explosions[i].active)
+		{
+			game.explosions[i].active = true;
+			game.explosions[i].x = cx;
+			game.explosions[i].y = cy;
+			game.explosions[i].frame = 0;
+			game.explosions[i].timer = 0;
+			return;
+		}
+	}
+}
+// 7方向拡散（中心角を0°として ±(N-1)/2 * step）
+void SpawnBossSpread(GameState& game)
+{
+	const int sx = game.boss.x - 8;
+	const int sy = game.boss.y + game.boss.h / 2;
+	const int half = (BOSS_SPREAD_COUNT - 1) / 2;   // 7→3
+	const float baseDeg = 180.0f;
+	for (int k = -half; k <= half; ++k) {
+		int slot = FindFreeBossBullet(game);
+		if (slot < 0) break;
+		float deg = baseDeg + k * BOSS_SPREAD_DEG_STEP;
+		float rad = deg * 3.14159265f / 180.0f;
+		game.bossBullets[slot].fx = float(sx);
+		game.bossBullets[slot].fy = float(sy);
+		game.bossBullets[slot].x = sx;
+		game.bossBullets[slot].y = sy;
+		game.bossBullets[slot].vx = BOSS_BULLET_SPEED_SP * cosf(rad);
+		game.bossBullets[slot].vy = BOSS_BULLET_SPEED_SP * sinf(rad);
+		game.bossBullets[slot].active = true;
+		game.bossBullets[slot].type = BossBulletType::Spread;
+	}
+}
+// 自機狙い（ボス中心→プレイヤー中心方向へ正規化して発射）
+void SpawnBossAimed(GameState& game, const Assets& assets)
+{
+	int slot = FindFreeBossBullet(game);
+	if (slot < 0) return;
+
+	// 砲口（左縁中央）
+	const float sx = float(game.boss.x - 8);
+	const float sy = float(game.boss.y + game.boss.h / 2);
+
+	// 自機中心
+	const int pw = assets.player ? assets.player->width : 32;
+	const int ph = assets.player ? assets.player->height : 32;
+	const float px = float(game.playerX + pw / 2);
+	const float py = float(game.playerY + ph / 2);
+
+	// 自機のフレーム間速度（px/frame）
+	const float vxP = float(game.playerX - game.lastPlayerX);
+	const float vyP = float(game.playerY - game.lastPlayerY);
+
+	// 係数（||P + V t - S|| = s t）
+	const float rx = px - sx;
+	const float ry = py - sy;
+	const float v2 = vxP * vxP + vyP * vyP;
+	const float s = float(BOSS_BULLET_SPEED_AIM);
+	const float c = rx * rx + ry * ry;
+
+	float t = 0.0f;
+	// v2 == s^2 の近傍で数値不安定になるので分岐
+	const float a = v2 - s * s;
+	const float b = 2.0f * (vxP * rx + vyP * ry);
+
+	if (std::fabs(a) < 1e-6f)
+	{
+		// a ≈ 0 → 線形： b t + c = 0
+		if (std::fabs(b) < 1e-6f) {
+			t = (s > 1e-6f) ? (std::sqrt(c) / s) : 0.0f; // 苦し紛れ：真っ直ぐ
+		}
+		else {
+			float t1 = -c / b;
+			t = (t1 > 0.0f) ? t1 : 0.0f;
+		}
+	}
+	else
+	{
+		// 二次方程式： a t^2 + b t + c = 0
+		float D = b * b - 4.0f * a * c;
+		if (D < 0.0f) {
+			// 届かない（自機のほうが速い等）→ いまの位置へ撃つ
+			t = 0.0f;
+		}
+		else {
+			float sqrtD = std::sqrt(D);
+			float t1 = (-b - sqrtD) / (2.0f * a);
+			float t2 = (-b + sqrtD) / (2.0f * a);
+			// 正で小さいほう
+			t = (t1 > 0.0f && t2 > 0.0f) ? (std::min)(t1, t2)
+				: (t1 > 0.0f ? t1 : (t2 > 0.0f ? t2 : 0.0f));
+		}
+	}
+
+	// 狙い点（先読み位置）
+	const float ax = px + vxP * t;
+	const float ay = py + vyP * t;
+
+	// 正規化して発射
+	float dx = ax - sx;
+	float dy = ay - sy;
+	float len = std::sqrt(dx * dx + dy * dy);
+	if (len < 1e-6f) { dx = -1.0f; dy = 0.0f; len = 1.0f; }
+
+	game.bossBullets[slot].fx = sx;
+	game.bossBullets[slot].fy = sy;
+	game.bossBullets[slot].x = int(sx);
+	game.bossBullets[slot].y = int(sy);
+	game.bossBullets[slot].vx = s * (dx / len);
+	game.bossBullets[slot].vy = s * (dy / len);
+	game.bossBullets[slot].active = true;
+	game.bossBullets[slot].type = BossBulletType::Aimed;
+}
+// 移動＆画面外消去
+void UpdateBossBullets(GameState& game, const Assets& assets)
+{
+	(void)assets;
+	for (int i = 0; i < BOSS_BULLET_MAX; ++i)
+	{
+		if (!game.bossBullets[i].active) continue;
+		game.bossBullets[i].fx += game.bossBullets[i].vx;
+		game.bossBullets[i].fy += game.bossBullets[i].vy;
+		game.bossBullets[i].x = int(game.bossBullets[i].fx);
+		game.bossBullets[i].y = int(game.bossBullets[i].fy);
+
+		if (game.bossBullets[i].x < -50 || game.bossBullets[i].x > PLAY_X_MAX + 50 ||
+			game.bossBullets[i].y < PLAY_Y_MIN - 50 || game.bossBullets[i].y > PLAY_Y_MAX + 50)
+		{
+			game.bossBullets[i].active = false;
+		}
+	}
+}
+//	射撃処理
+void ProcessFireRequest(GameState& game, const Assets& assets)
+{
+	//	クールダウン中は何もせず終了
+	if (game.fireCooldown > 0)	return;
+	// 要求消費の直前で武器種類を固定（このフレームの状態で撃つ）
+	if (game.currentWeapon == WeaponType::Normal)
+	{
+#ifdef NORMAL_RELOAD_FRAMES
+		if (game.normalReloading) return; // リロード中は撃てない仕様
+#endif
+		if (game.ammoNormal <= 0) { StartNormalReload(game); return; }
+
+		int slot = FindFreeBulletSlot(game);
+		if (slot >= 0) {
+			game.playerBullets[slot].active = true;
+			game.playerBullets[slot].x = game.playerX + 30;
+			game.playerBullets[slot].y = game.playerY + 10;
+			game.playerBullets[slot].vx = 12.0f;
+			game.playerBullets[slot].vy = 0.0f;
+			game.playerBullets[slot].type = WeaponType::Normal;
+			game.ammoNormal--;
+
+			PlaySE(L"sound\\se\\shot_normal.mp3");
+
+			if (game.ammoNormal <= 0) StartNormalReload(game);
+			game.fireCooldown = FIRE_COOLDOWN_FRAMES_NORMAL;
+		}
+	}
+	else if (game.currentWeapon == WeaponType::ChargeBeam)
+	{
+		if (game.ammoBeam <= 0) return;
+		int slot = FindFreeBulletSlot(game);
+		if (slot >= 0) {
+			game.playerBullets[slot].active = true;
+			game.playerBullets[slot].x = game.playerX + 30;
+			game.playerBullets[slot].y = game.playerY + 10;
+			game.playerBullets[slot].vx = 20.0f;
+			game.playerBullets[slot].vy = 0.0f;
+			game.playerBullets[slot].type = WeaponType::ChargeBeam;
+			game.ammoBeam--;
+
+			PlaySE(L"sound\\se\\shot_beam.mp3");
+			game.fireCooldown = FIRE_COOLDOWN_FRAMES_BEAM;
+		}
+	}
+	else if (game.currentWeapon == WeaponType::Spread)
+	{
+		if (game.ammoSpread <= 0) return;
+		const float angles[5] = { -30.f,-15.f,0.f,15.f,30.f };
+		const float PI = 3.14159265f, speed = 10.f;
+		for (int i = 0; i < 5; ++i) {
+			int slot = FindFreeBulletSlot(game);
+			if (slot < 0) break;
+			float a = angles[i] * PI / 180.f;
+			game.playerBullets[slot].active = true;
+			game.playerBullets[slot].x = game.playerX + 30;
+			game.playerBullets[slot].y = game.playerY + 10;
+			game.playerBullets[slot].vx = speed * cosf(a);
+			game.playerBullets[slot].vy = speed * sinf(a);
+			game.playerBullets[slot].type = WeaponType::Spread;
+		}
+		game.ammoSpread--;
+		PlaySE(L"sound\\se\\shot_spread.mp3");
+		game.fireCooldown = FIRE_COOLDOWN_FRAMES_SPREAD;
+	}
+}
+//	ボス戦開始用
+void Startboss(GameState& game, const Assets& assets)
+{
+	game.scene = Scene::Boss;
+	if (assets.boss)
+	{
+		game.boss.w = assets.boss->width;
+		game.boss.h = assets.boss->height;
+	}
+	else {
+		game.boss.w = BOSS_WIDTH;
+		game.boss.h = BOSS_HEIGHT;
+	}
+	game.boss.x = PLAY_X_MAX;	                //	画面外
+	game.boss.y = PLAY_Y_MIN;	                //	UI領域のすぐ下
+	game.bossTargetX = PLAY_X_MAX - game.boss.w;	//	止めたい位置(右端150px分内側とか)
+	game.boss.maxHP = BOSS_MAX_HP;
+	game.boss.hp = BOSS_MAX_HP;
+	game.bossHpShown = game.boss.hp;
+	game.bossIntro = true;
+	game.boss.alive = true;
+	game.bossActive = true;
+
+	// ▼BGM切替：通常→ボス
+	StopBGM();
+	PlayBGM(BGM_PATH_BOSS);   // ループ再生想定
+	game.bgm = BgmKind::Boss;
+
+	//ボス戦では雑魚・敵弾を消す
+	for (int i = 0; i < ENEMY_MAX; i++)		  game.enemies[i].alive = false;
+	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
+}
+// 入力から進行方向（-1,0,1）ベクトルを得る。無入力なら現状の tpDir を維持。
+inline void DecideTeleportDir(GameState& game) {
+	int dx = game.inputX;
+	int dy = game.inputY;
+	if (dx == 0 && dy == 0) {
+		// 維持（最後の向き）。何もなければ右
+		if (game.tpDirX == 0 && game.tpDirY == 0) { game.tpDirX = 1; game.tpDirY = 0; }
+		return;
+	}
+	// 正規化（斜めは -1/1 のまま）
+	if (dx != 0) dx = (dx < 0) ? -1 : 1;
+	if (dy != 0) dy = (dy < 0) ? -1 : 1;
+	game.tpDirX = dx;
+	game.tpDirY = dy;
+}
+// プレイ領域に収まるよう目的地を計算・クランプ
+inline void ComputeTeleportTarget(GameState& game, const Assets& assets) {
+	const int pw = assets.player ? assets.player->width : 32;
+	const int ph = assets.player ? assets.player->height : 32;
+	int x = game.playerX + game.tpDirX * TP_DISTANCE;
+	int y = game.playerY + game.tpDirY * TP_DISTANCE;
+
+	// クランプ（プレイ領域内）
+	if (x < PLAY_X_MIN) x = PLAY_X_MIN;
+	if (y < PLAY_Y_MIN) y = PLAY_Y_MIN;
+	if (x > PLAY_X_MAX - pw) x = PLAY_X_MAX - pw;
+	if (y > PLAY_Y_MAX - ph) y = PLAY_Y_MAX - ph;
+
+	game.tpEndX = x;
+	game.tpEndY = y;
+}
 void Game(GameState& game, Assets& assets)
 {
 
@@ -1478,488 +1962,3 @@ void Game(GameState& game, Assets& assets)
 	}
 }
 
-static Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
-{
-	const TCHAR* kFont = TEXT("MS ゴシック");
-	return CreateBmpString(kFont, size, bold, ggo, text);
-}
-
-void EndBossCleanup(GameState& game)
-{
-	//ボス状態を終了扱いへ
-	game.boss.alive = false;
-	game.bossActive = false;
-	game.bossIntro = false;
-
-	//ボス弾を全消去
-	for (int i = 0; i < BOSS_BULLET_MAX; i++)
-	{
-		game.bossBullets[i].active = false;
-		game.bossBullets[i].x = 0;
-		game.bossBullets[i].y = 0;
-		game.bossBullets[i].fx = 0.0f;
-		game.bossBullets[i].fy = 0.0f;
-		game.bossBullets[i].vx = 0.0f;
-		game.bossBullets[i].vy = 0.0f;
-		game.bossBullets[i].type = BossBulletType::Spread;
-	}
-
-	//ボスの移動・射撃タイマーを初期値へ
-	game.bossMoveDirY = +1;
-	game.bossOscPhase = 0.0f;
-	game.bossTimerSpread = BOSS_FIRE_INTERVAL_SP;
-	game.bossTimerAimed = BOSS_FIRE_INTERVAL_AIM;
-
-	//TP演出が残っていたら止める
-	game.teleportRequest = false;
-	game.tpActive = false;
-	game.tpPhase = 0;
-	game.tpTimer = 0;
-
-}
-
-//HP0→ゲームオーバー処理
-void HandlePlayerDeath(GameState& game)
-{
-		EndBossCleanup(game);
-		game.scene = Scene::GameOver;
-}
-//ボス撃破→ゲームクリア処理
-void HandleBossDefeat(GameState& game)
-{
-	EndBossCleanup(game);	//ボス関連まとめてクリア
-	game.score += BOSS_CLEAR_BONUS;
-	game.lastScoreHud = -1;
-	game.scene = Scene::GameClear;
-	PlaySE(L"sound\\se\\game_Clear.mp3");
-}
-
-//	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
-//	画像プールから空きスロットを探す(見つかればその添え字、なかったら-1)
-int AcquirePopupSlot(const Assets& assets)
-{
-	for (int i = 0; i < GameState::POPUP_MAX; i++)
-	{
-		if (assets.popups[i] == nullptr)	return i;
-	}
-	return -1;
-}
-// （オプション）通常弾のリロード開始
-inline void StartNormalReload(GameState& game)
-{
-#ifdef NORMAL_RELOAD_FRAMES
-	if (!game.normalReloading && game.ammoNormal < MAX_AMMO_NORMAL) {
-		game.normalReloading = true;
-		game.normalReloadTimer = NORMAL_RELOAD_FRAMES; // 例: 60
-		game.lastWeaponHud = -1;
-		PlaySE(L"sound\\se\\reload.mp3");
-	}
-#else
-	// 即時リロード派ならこちら
-	if (game.ammoNormal < MAX_AMMO_NORMAL) {
-		game.ammoNormal = MAX_AMMO_NORMAL;
-		game.lastWeaponHud = -1;
-	}
-#endif
-}
-//	矩形交差(AABB)
-inline bool Intersects(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
-{
-	return (ax < bx + bw) && (ax + aw > bx) && (ay < by + bh) && (ay + ah > by);
-}
-//	矩形を取得
-inline void GetEnemyRect(const GameState& game, const Assets& assets, int i, int& ex, int& ey, int& ew, int& eh)
-{
-	ex = game.enemies[i].x;
-	ey = game.enemies[i].y;
-	Bmp* ebmp = (game.enemies[i].type == EnemyType::Vertical) ? assets.enemy02 : assets.enemy01;
-	if (!ebmp) ebmp = assets.enemy01;	//	フォールバック
-	ew = ebmp ? ebmp->width : 32;
-	eh = ebmp ? ebmp->height : 32;
-}
-inline void GetRockRect(const GameState& game, const Assets& assets, int idx, int& rx, int& ry, int& rw, int& rh)
-{
-	rx = game.rocks[idx].x;
-	ry = game.rocks[idx].y;
-	rw = assets.rock ? assets.rock->width : 40;
-	rh = assets.rock ? assets.rock->height : 40;
-}
-//	空スロット検索
-int FindFreeBulletSlot(GameState& game)
-{
-	for (int i = 0; i < PLAYER_BULLET_MAX; i++)	if (!game.playerBullets[i].active)	return i;
-
-	return -1;	//	空き無し
-}
-int FindFreeRockSlot(GameState& game)
-{
-	for (int i = 0; i < ROCK_MAX; ++i)			if (!game.rocks[i].alive)			return i;
-	return -1;
-}
-int FindFreePickupSlot(GameState& game)
-{
-	for (int i = 0; i < PICKUP_MAX; ++i)		if (!game.pickups[i].active)		return i;
-	return -1;
-}
-int FindFreeEnemySlot(GameState& game)
-{
-	for (int i = 0; i < ENEMY_MAX; ++i)			if (!game.enemies[i].alive)			return i;
-	return -1;
-}
-int FindFreeBossBullet(const GameState& game)
-{
-	for (int i = 0; i < BOSS_BULLET_MAX; ++i)	if (!game.bossBullets[i].active)	return i;
-	return -1;
-}
-//	物体スポーン
-void SpawnRock(GameState& game, const Assets& assets)
-{
-	int slot = FindFreeRockSlot(game);
-	if (slot < 0)	return;
-	const int rh = assets.rock ? assets.rock->height : 40;//画像未設定時のフォールバック高さ
-	const int rw = assets.rock ? assets.rock->height : 40;
-
-	const int maxTry = 20;	//	重ならない位置を探す(最大20回)
-	for (int t = 0; t < maxTry; t++)
-	{
-		int y = PLAY_Y_MIN + rand() & (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - rh));
-		int x = PLAY_X_MAX + 50;
-		//既存の敵と交差しないか確認
-		bool ok = true;
-		for (int i = 0; i < ENEMY_MAX; i++)
-		{
-			if (!game.enemies[i].alive)	continue;
-			int ex, ey, ew, eh;
-			GetEnemyRect(game, assets, i, ex, ey, ew, eh);
-			if (Intersects(x, y, rw, rh, ex, ey, ew, eh))
-			{
-				ok = false; break;
-			}
-		}
-		if (ok)
-		{
-			game.rocks[slot] = { x,y,/*hp*/3,/*alive*/true };
-			return;
-		}
-	}
-}
-void SpawnEnemy(GameState& game, const Assets& assets)
-{
-	int slot = FindFreeEnemySlot(game);
-	if (slot < 0) return; // 空きがなければ出さない
-
-	// 種類：Normal/Vertical を適当に振り分け
-	EnemyType t = (rand() % 2 == 0) ? EnemyType::Normal : EnemyType::Vertical;
-	Bmp* ebmp = (t == EnemyType::Vertical) ? assets.enemy02 : assets.enemy01;
-	const int ew = ebmp ? ebmp->width : 32;
-	const int eh = ebmp ? ebmp->height : 32;
-
-	const int maxTry = 20;	//	重ならない位置を探す(最大20回)
-	for (int tr = 0; tr < maxTry; tr++)
-	{
-		int x = PLAY_X_MAX + 50;
-		int y = PLAY_Y_MIN + rand() % (std::max)(1, (PLAY_Y_MAX - PLAY_Y_MIN - eh));
-
-		//	既存の岩と交差しないか確認
-		bool ok = true;
-		for (int r = 0; r < ROCK_MAX; r++)
-		{
-			if (!game.rocks[r].alive)	continue;
-			int rx, ry, rw, rh;
-			GetRockRect(game, assets, r, rx, ry, rw, rh);
-			if (Intersects(x, y, ew, eh, rx, ry, rw, rh))
-			{
-				ok = false; break;
-			}
-		}
-		if (ok)
-		{
-			game.enemies[slot].x = x;
-			game.enemies[slot].y = y;
-			game.enemies[slot].type = t;
-			game.enemies[slot].alive = true;
-			game.enemies[slot].shootTimer = 60 + rand() % 120;
-			game.enemies[slot].vy = (t == EnemyType::Vertical) ? ((rand() % 2) ? 2 : -2) : 0;
-			return;
-		}
-	}
-}
-void SpawnPickup(GameState& game, WeaponType type, int x, int y)
-{
-	int slot = FindFreePickupSlot(game);
-	if (slot < 0) return;
-	game.pickups[slot].active = true;
-	game.pickups[slot].x = x;
-	game.pickups[slot].y = y;
-	game.pickups[slot].vx = -PICKUP_DRIFT_SPEED;
-	game.pickups[slot].vy = PICKUP_FALL_SPEED;
-	game.pickups[slot].type = type;
-	game.pickups[slot].life = 300;	//	５秒 : 60fps
-}
-void SpawnExplosion(GameState& game, const Assets& assets, int cx, int cy)
-{
-	if (assets.explosionCount <= 0)	return;
-	for (int i = 0; i < GameState::EXPLOSION_MAX; i++)
-	{
-		if (!game.explosions[i].active)
-		{
-			game.explosions[i].active = true;
-			game.explosions[i].x = cx;
-			game.explosions[i].y = cy;
-			game.explosions[i].frame = 0;
-			game.explosions[i].timer = 0;
-			return;
-		}
-	}
-}
-// 7方向拡散（中心角を0°として ±(N-1)/2 * step）
-void SpawnBossSpread(GameState& game)
-{
-	const int sx = game.boss.x - 8;
-	const int sy = game.boss.y + game.boss.h / 2;
-	const int half = (BOSS_SPREAD_COUNT - 1) / 2;   // 7→3
-	const float baseDeg = 180.0f;
-	for (int k = -half; k <= half; ++k) {
-		int slot = FindFreeBossBullet(game);
-		if (slot < 0) break;
-		float deg = baseDeg + k * BOSS_SPREAD_DEG_STEP;
-		float rad = deg * 3.14159265f / 180.0f;
-		game.bossBullets[slot].fx = float(sx);
-		game.bossBullets[slot].fy = float(sy);
-		game.bossBullets[slot].x = sx;
-		game.bossBullets[slot].y = sy;
-		game.bossBullets[slot].vx = BOSS_BULLET_SPEED_SP * cosf(rad);
-		game.bossBullets[slot].vy = BOSS_BULLET_SPEED_SP * sinf(rad);
-		game.bossBullets[slot].active = true;
-		game.bossBullets[slot].type = BossBulletType::Spread;
-	}
-}
-// 自機狙い（ボス中心→プレイヤー中心方向へ正規化して発射）
-void SpawnBossAimed(GameState& game, const Assets& assets)
-{
-	int slot = FindFreeBossBullet(game);
-	if (slot < 0) return;
-
-	// 砲口（左縁中央）
-	const float sx = float(game.boss.x - 8);
-	const float sy = float(game.boss.y + game.boss.h / 2);
-
-	// 自機中心
-	const int pw = assets.player ? assets.player->width : 32;
-	const int ph = assets.player ? assets.player->height : 32;
-	const float px = float(game.playerX + pw / 2);
-	const float py = float(game.playerY + ph / 2);
-
-	// 自機のフレーム間速度（px/frame）
-	const float vxP = float(game.playerX - game.lastPlayerX);
-	const float vyP = float(game.playerY - game.lastPlayerY);
-
-	// 係数（||P + V t - S|| = s t）
-	const float rx = px - sx;
-	const float ry = py - sy;
-	const float v2 = vxP * vxP + vyP * vyP;
-	const float s = float(BOSS_BULLET_SPEED_AIM);
-	const float c = rx * rx + ry * ry;
-
-	float t = 0.0f;
-	// v2 == s^2 の近傍で数値不安定になるので分岐
-	const float a = v2 - s * s;
-	const float b = 2.0f * (vxP * rx + vyP * ry);
-
-	if (std::fabs(a) < 1e-6f)
-	{
-		// a ≈ 0 → 線形： b t + c = 0
-		if (std::fabs(b) < 1e-6f) {
-			t = (s > 1e-6f) ? (std::sqrt(c) / s) : 0.0f; // 苦し紛れ：真っ直ぐ
-		}
-		else {
-			float t1 = -c / b;
-			t = (t1 > 0.0f) ? t1 : 0.0f;
-		}
-	}
-	else
-	{
-		// 二次方程式： a t^2 + b t + c = 0
-		float D = b * b - 4.0f * a * c;
-		if (D < 0.0f) {
-			// 届かない（自機のほうが速い等）→ いまの位置へ撃つ
-			t = 0.0f;
-		}
-		else {
-			float sqrtD = std::sqrt(D);
-			float t1 = (-b - sqrtD) / (2.0f * a);
-			float t2 = (-b + sqrtD) / (2.0f * a);
-			// 正で小さいほう
-			t = (t1 > 0.0f && t2 > 0.0f) ? (std::min)(t1, t2)
-				: (t1 > 0.0f ? t1 : (t2 > 0.0f ? t2 : 0.0f));
-		}
-	}
-
-	// 狙い点（先読み位置）
-	const float ax = px + vxP * t;
-	const float ay = py + vyP * t;
-
-	// 正規化して発射
-	float dx = ax - sx;
-	float dy = ay - sy;
-	float len = std::sqrt(dx * dx + dy * dy);
-	if (len < 1e-6f) { dx = -1.0f; dy = 0.0f; len = 1.0f; }
-
-	game.bossBullets[slot].fx = sx;
-	game.bossBullets[slot].fy = sy;
-	game.bossBullets[slot].x = int(sx);
-	game.bossBullets[slot].y = int(sy);
-	game.bossBullets[slot].vx = s * (dx / len);
-	game.bossBullets[slot].vy = s * (dy / len);
-	game.bossBullets[slot].active = true;
-	game.bossBullets[slot].type = BossBulletType::Aimed;
-}
-// 移動＆画面外消去
-void UpdateBossBullets(GameState& game, const Assets& assets)
-{
-	(void)assets;
-	for (int i = 0; i < BOSS_BULLET_MAX; ++i)
-	{
-		if (!game.bossBullets[i].active) continue;
-		game.bossBullets[i].fx += game.bossBullets[i].vx;
-		game.bossBullets[i].fy += game.bossBullets[i].vy;
-		game.bossBullets[i].x = int(game.bossBullets[i].fx);
-		game.bossBullets[i].y = int(game.bossBullets[i].fy);
-
-		if (game.bossBullets[i].x < -50 || game.bossBullets[i].x > PLAY_X_MAX + 50 ||
-			game.bossBullets[i].y < PLAY_Y_MIN - 50 || game.bossBullets[i].y > PLAY_Y_MAX + 50)
-		{
-			game.bossBullets[i].active = false;
-		}
-	}
-}
-//	射撃処理
-void ProcessFireRequest(GameState& game, const Assets& assets)
-{
-	//	クールダウン中は何もせず終了
-	if (game.fireCooldown > 0)	return;
-	// 要求消費の直前で武器種類を固定（このフレームの状態で撃つ）
-	if (game.currentWeapon == WeaponType::Normal)
-	{
-#ifdef NORMAL_RELOAD_FRAMES
-		if (game.normalReloading) return; // リロード中は撃てない仕様
-#endif
-		if (game.ammoNormal <= 0) { StartNormalReload(game); return; }
-
-		int slot = FindFreeBulletSlot(game);
-		if (slot >= 0) {
-			game.playerBullets[slot].active = true;
-			game.playerBullets[slot].x = game.playerX + 30;
-			game.playerBullets[slot].y = game.playerY + 10;
-			game.playerBullets[slot].vx = 12.0f;
-			game.playerBullets[slot].vy = 0.0f;
-			game.playerBullets[slot].type = WeaponType::Normal;
-			game.ammoNormal--;
-
-			PlaySE(L"sound\\se\\shot_normal.mp3");
-
-			if (game.ammoNormal <= 0) StartNormalReload(game);
-			game.fireCooldown = FIRE_COOLDOWN_FRAMES_NORMAL;
-		}
-	}
-	else if (game.currentWeapon == WeaponType::ChargeBeam)
-	{
-		if (game.ammoBeam <= 0) return;
-		int slot = FindFreeBulletSlot(game);
-		if (slot >= 0) {
-			game.playerBullets[slot].active = true;
-			game.playerBullets[slot].x = game.playerX + 30;
-			game.playerBullets[slot].y = game.playerY + 10;
-			game.playerBullets[slot].vx = 20.0f;
-			game.playerBullets[slot].vy = 0.0f;
-			game.playerBullets[slot].type = WeaponType::ChargeBeam;
-			game.ammoBeam--;
-
-			PlaySE(L"sound\\se\\shot_beam.mp3");
-			game.fireCooldown = FIRE_COOLDOWN_FRAMES_BEAM;
-		}
-	}
-	else if (game.currentWeapon == WeaponType::Spread)
-	{
-		if (game.ammoSpread <= 0) return;
-		const float angles[5] = { -30.f,-15.f,0.f,15.f,30.f };
-		const float PI = 3.14159265f, speed = 10.f;
-		for (int i = 0; i < 5; ++i) {
-			int slot = FindFreeBulletSlot(game);
-			if (slot < 0) break;
-			float a = angles[i] * PI / 180.f;
-			game.playerBullets[slot].active = true;
-			game.playerBullets[slot].x = game.playerX + 30;
-			game.playerBullets[slot].y = game.playerY + 10;
-			game.playerBullets[slot].vx = speed * cosf(a);
-			game.playerBullets[slot].vy = speed * sinf(a);
-			game.playerBullets[slot].type = WeaponType::Spread;
-		}
-		game.ammoSpread--;
-		PlaySE(L"sound\\se\\shot_spread.mp3");
-		game.fireCooldown = FIRE_COOLDOWN_FRAMES_SPREAD;
-	}
-}
-//	ボス戦開始用
-void Startboss(GameState& game, const Assets& assets)
-{
-	game.scene = Scene::Boss;
-	if (assets.boss)
-	{
-		game.boss.w = assets.boss->width;
-		game.boss.h = assets.boss->height;
-	}
-	else {
-		game.boss.w = BOSS_WIDTH;
-		game.boss.h = BOSS_HEIGHT;
-	}
-	game.boss.x = PLAY_X_MAX;	                //	画面外
-	game.boss.y = PLAY_Y_MIN;	                //	UI領域のすぐ下
-	game.bossTargetX = PLAY_X_MAX - game.boss.w;	//	止めたい位置(右端150px分内側とか)
-	game.boss.maxHP = BOSS_MAX_HP;
-	game.boss.hp = BOSS_MAX_HP;
-	game.bossHpShown = game.boss.hp;
-	game.bossIntro = true;
-	game.boss.alive = true;
-	game.bossActive = true;
-
-	// ▼BGM切替：通常→ボス
-	StopBGM();
-	PlayBGM(BGM_PATH_BOSS);   // ループ再生想定
-	game.bgm = BgmKind::Boss;
-
-	//ボス戦では雑魚・敵弾を消す
-	for (int i = 0; i < ENEMY_MAX; i++)		  game.enemies[i].alive = false;
-	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
-}
-// 入力から進行方向（-1,0,1）ベクトルを得る。無入力なら現状の tpDir を維持。
-inline void DecideTeleportDir(GameState& game) {
-	int dx = game.inputX;
-	int dy = game.inputY;
-	if (dx == 0 && dy == 0) {
-		// 維持（最後の向き）。何もなければ右
-		if (game.tpDirX == 0 && game.tpDirY == 0) { game.tpDirX = 1; game.tpDirY = 0; }
-		return;
-	}
-	// 正規化（斜めは -1/1 のまま）
-	if (dx != 0) dx = (dx < 0) ? -1 : 1;
-	if (dy != 0) dy = (dy < 0) ? -1 : 1;
-	game.tpDirX = dx;
-	game.tpDirY = dy;
-}
-// プレイ領域に収まるよう目的地を計算・クランプ
-inline void ComputeTeleportTarget(GameState& game, const Assets& assets) {
-	const int pw = assets.player ? assets.player->width : 32;
-	const int ph = assets.player ? assets.player->height : 32;
-	int x = game.playerX + game.tpDirX * TP_DISTANCE;
-	int y = game.playerY + game.tpDirY * TP_DISTANCE;
-
-	// クランプ（プレイ領域内）
-	if (x < PLAY_X_MIN) x = PLAY_X_MIN;
-	if (y < PLAY_Y_MIN) y = PLAY_Y_MIN;
-	if (x > PLAY_X_MAX - pw) x = PLAY_X_MAX - pw;
-	if (y > PLAY_Y_MAX - ph) y = PLAY_Y_MAX - ph;
-
-	game.tpEndX = x;
-	game.tpEndY = y;
-}
