@@ -407,7 +407,7 @@ static void Startboss(GameState& game, const Assets& assets)
 	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
 }
 //	ボス戦終了用
- void EndBossCleanup(GameState& game, const Assets& assets)
+void EndBossCleanup(GameState& game, const Assets& assets)
 {
 	//	ボス本体
 	game.boss.alive = false;
@@ -1427,6 +1427,7 @@ void Game(GameState& game, Assets& assets)
 		{
 			if (game.playerHP <= 0)
 			{
+				EndBossCleanup(game);
 				game.scene = Scene::GameOver;
 				return;		//この後の処理をスキップ	
 			}

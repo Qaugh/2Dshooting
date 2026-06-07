@@ -1,4 +1,5 @@
 #include "common.h"
+#include"Game.h"
 #include "audio_player.h"
 //	     入力処理
 
@@ -199,6 +200,9 @@ void Input(GameState& game, const Assets& assets)
 				//	初回スポーンタイマー(ランダム)
 				game.rockSpawnTimer = ROCK_SPAWN_MIN + rand() % (ROCK_SPAWN_MAX - ROCK_SPAWN_MIN + 1);
 			}
+
+			//ボス初期化
+			EndBossCleanup(game);
 		}
 
 		//!	ESCでゲーム終了
@@ -318,8 +322,14 @@ void Input(GameState& game, const Assets& assets)
 		//	Z か Space で再開
 		if (ChkKeyEdge(PK_Z) || ChkKeyEdge(PK_SP))	game.scene = Scene::Play;
 		//	Z か ESC でステージセレクト画面
-		if (ChkKeyEdge(PK_X) || ChkKeyEdge(PK_ESC))	game.scene = Scene::StageSelect;
-
+		if (ChkKeyEdge(PK_X) || ChkKeyEdge(PK_ESC))
+		{ 
+			if (game.bossActive)
+			{
+				EndBossCleanup(game);
+			}
+			game.scene = Scene::StageSelect; 
+		}
 		break;
 	}
 
@@ -327,12 +337,12 @@ void Input(GameState& game, const Assets& assets)
 	case Scene::GameOver:
 	{
 		GetKeyAll();
-
-		if (ChkKeyEdge(PK_ESC) == 1)	game.scene = Scene::StageSelect;
-
+		if (game.bgm != BgmKind::None)
 		{
 			StopBGM();
+			game.bgm = BgmKind::None;
 		}
+		if (ChkKeyEdge(PK_ESC) == 1)game.scene = Scene::StageSelect;
 		break;
 	}
 
@@ -340,9 +350,12 @@ void Input(GameState& game, const Assets& assets)
 	case Scene::GameClear:
 	{
 		GetKeyAll();
-		if (ChkKeyEdge(PK_ESC))	game.scene = Scene::StageSelect;
-
+		if (game.bgm != BgmKind::None)
+		{
 			StopBGM();
+			game.bgm = BgmKind::None;
+		}
+		if (ChkKeyEdge(PK_ESC) == 1)game.scene = Scene::StageSelect;
 		break;
 	}
 
