@@ -403,3 +403,5 @@ void Input (      GameState&, const Assets&);
 void Game  (	  GameState&,		Assets&);
 void Output(const GameState&, const Assets&);
 void Delete(      GameState&,       Assets&);
+
+static Bmp* MakeTextBmp(const TCHAR*, int, int, int);

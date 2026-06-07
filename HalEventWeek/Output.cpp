@@ -1,7 +1,7 @@
 ﻿#include "common.h"
+#include "Output.h"
 #include <algorithm>
 //	出力処理
-
 namespace HUD
 {
 	constexpr int kScoreY        = 20;	//	Scoreの規定Y
@@ -16,144 +16,6 @@ namespace HUD
 	//	インベントリの間隔
 	constexpr int kInvGapFromLabelX = 12;	//	ラベル右端からインベントリまでの余白
 	constexpr int kInvSelectPad     = 0;	//	枠画像がアイコンと同じサイズんら０でおｋ
-}
-
-//	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
-static Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
-{
-	const TCHAR* kFont = TEXT("MS ゴシック");	//	使いたいフォントに
-	return CreateBmpString(kFont, size, bold, ggo, text);
-}
-
-//	HPの画像
-static void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int spacing = -1, float scale = 1.0f)
-{
-	//	画像がない/未ロードなら何もしない
-	if (!assets.heartFull || !assets.heartEmpty)	return;
-	//	playerHp	/ playerMaxHpはGameStateに
-	const int maxHP    = (gs.playerMaxHP > 0) ? gs.playerMaxHP : 0;
-	int hp             = gs.playerHP;
-	if (hp < 0)	    hp = 0;
-	if (hp > maxHP) hp = maxHP;
-
-	//とりあえず等倍描画(scale != 1.0fを使うならここで拡大処理を別途用意)
-	const int iconW = assets.heartFull->width;
-	const int step  = (spacing > 0) ? spacing : (iconW + 2);
-
-	int px = x;
-	for (int i = 0; i < maxHP; i++, px += step)
-	{
-		//	i < hp　までは満タン、それ以降は空
-		DrawBmp(px, y, (i < hp) ? assets.heartFull : assets.heartEmpty,/*tr=*/true);
-	}
-}
-
-//	枠と塗りつぶしでプログレスバーを描く
-static inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor) 
-{
-	if (right - left < 4 || bottom - top < 4)	return;
-
-	if (ratio < 0.0f) ratio = 0.0f;
-	if (ratio > 1.0f) ratio = 1.0f;
-
-	//	①枠(塗りつぶし=false)
-	DrawRect(left, top, right, bottom, frameColor, false);
-
-	//	②中身(塗りつぶし=true)
-	const int innerL = left   + 1;
-	const int innerT = top    + 1;
-	const int innerR = innerL + (int)((right - left - 2) * ratio);
-	const int innerB = bottom - 1;
-
-	if (innerR > innerL)
-	{
-		DrawRect(innerL, innerT, innerR, innerB, fillColor, true);
-	}
-}
-
-//	TP状態の描画
-static void DrawTeleportState(const GameState& game, const Assets& assets)
-{
-	int scoreH = 0;
-	if (assets.scoreHud)	scoreH = assets.scoreHud->height;
-	const int labelX = game.HUD_X;
-	const int labelY = HUD::kScoreY + scoreH + HUD::kTpMarginY;
-	//	ACTIVE中は何も書かない
-	if (game.tpActive)
-	{
-		if (assets.tpCdHud)
-		{
-			DeleteBmp(const_cast<Bmp**>(&assets.tpCdHud));
-			const_cast<GameState&>(game).lastTpCDShown = -1;
-		}
-		return;
-	}
-	//	READY / COOLDOWNのラベル選択
-	Bmp* tpLabel = nullptr;
-	if (game.tpCDTimer > 0)
-	{
-		tpLabel = assets.dash_n_active;
-	}
-	else
-	{
-		tpLabel = assets.dash_ready;
-	}
-	if (tpLabel)	DrawBmp(labelX, labelY, tpLabel, true);
-	//	COOLDOWNの間だけ、残り秒数を右側に表示
-	if (game.tpCDTimer > 0) {}
-	else 
-	{
-		//	READY中は数値を非表示
-		if (assets.tpCdHud)
-		{
-			DeleteBmp(const_cast<Bmp**>(&assets.tpCdHud));
-			const_cast<GameState&>(game).lastTpCDShown = -1;
-		}
-	}
-}
-
-//	武器インベントリ描画
-static void DrawWeaponInventory(const GameState& game, const Assets& assets)
-{
-	//	stage1撃破ラベルの文字列を既存t同じフォントサイズで生成し、幅だけ取得
-	int total = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
-	TCHAR txt[32];
-	_stprintf(txt, TEXT("%02d / %02d"), game.stageKillCount, total);
-	int labelW = 0;
-	{
-		if (Bmp* temp = MakeTextBmp(txt, 20))
-		{
-			labelW = temp->width;
-			DeleteBmp(&temp);
-		}
-	}
-	//	ラベルの右端をアンカーにして、さらに少し余白を開けた位置をインベントリの起点とする
-	const int L = HUD::kStageBarL;
-	const int T = HUD::kStageBarT;
-	const int R = L + HUD::kStageBarW;
-	const int labelX = R + HUD::kStagelabelGapX;
-	const int extraOffsetX = (game.stageNo == 1) ? 60 : 0;
-	const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX + extraOffsetX;
-	//const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX;
-	const int anchorY = T;
-	struct IconItem { WeaponType type; Bmp* bmp; };
-	const IconItem items[] = {
-		{WeaponType::Normal,	assets.uiWeaponIconNormal },
-		{WeaponType::ChargeBeam,assets.uiWeaponIconBeam	  },
-		{WeaponType::Spread,	assets.uiWeaponIconSpread },
-	};
-	int y = anchorY;
-	for (const auto& it : items)
-	{
-		if (!it.bmp) continue;
-		DrawBmp(anchorX, y, it.bmp, true);
-		if (it.type == game.currentWeapon && assets.uiWeaponSelectFrame)
-		{
-			DrawBmp(anchorX - HUD::kInvSelectPad, y - HUD::kInvSelectPad, assets.uiWeaponSelectFrame, true);
-		}
-		y += it.bmp->height + HUD::kInvItemGapY;
-	}
-
 }
 
 void Output(const GameState& game, const Assets& assets)
@@ -1115,4 +977,141 @@ void Output(const GameState& game, const Assets& assets)
 	
 	PrintFrameBuffer();
 	FlipScreen();
+}
+
+//	文字Bmpの生成を楽にするやつ、CreateBmpStringからMakeTextBmpに変換
+static Bmp* MakeTextBmp(const TCHAR* text, int size, int bold = 0, int ggo = GGO_BITMAP)
+{
+	const TCHAR* kFont = TEXT("MS ゴシック");	//	使いたいフォントに
+	return CreateBmpString(kFont, size, bold, ggo, text);
+}
+//	HPの画像
+static void DrawHpHearts(const GameState& gs, const Assets& assets,	int x, int y, int spacing = -1, float scale = 1.0f)
+{
+	//	画像がない/未ロードなら何もしない
+	if (!assets.heartFull || !assets.heartEmpty)	return;
+	//	playerHp	/ playerMaxHpはGameStateに
+	const int maxHP    = (gs.playerMaxHP > 0) ? gs.playerMaxHP : 0;
+	int hp             = gs.playerHP;
+	if (hp < 0)	    hp = 0;
+	if (hp > maxHP) hp = maxHP;
+
+	//とりあえず等倍描画(scale != 1.0fを使うならここで拡大処理を別途用意)
+	const int iconW = assets.heartFull->width;
+	const int step  = (spacing > 0) ? spacing : (iconW + 2);
+
+	int px = x;
+	for (int i = 0; i < maxHP; i++, px += step)
+	{
+		//	i < hp　までは満タン、それ以降は空
+		DrawBmp(px, y, (i < hp) ? assets.heartFull : assets.heartEmpty,/*tr=*/true);
+	}
+}
+
+//	枠と塗りつぶしでプログレスバーを描く
+static inline void DrawProgressBarI(int left, int top, int right, int bottom, float ratio, int frameColor, int fillColor) 
+{
+	if (right - left < 4 || bottom - top < 4)	return;
+
+	if (ratio < 0.0f) ratio = 0.0f;
+	if (ratio > 1.0f) ratio = 1.0f;
+
+	//	①枠(塗りつぶし=false)
+	DrawRect(left, top, right, bottom, frameColor, false);
+
+	//	②中身(塗りつぶし=true)
+	const int innerL = left   + 1;
+	const int innerT = top    + 1;
+	const int innerR = innerL + (int)((right - left - 2) * ratio);
+	const int innerB = bottom - 1;
+
+	if (innerR > innerL)
+	{
+		DrawRect(innerL, innerT, innerR, innerB, fillColor, true);
+	}
+}
+
+//	TP状態の描画
+static void DrawTeleportState(const GameState& game, const Assets& assets)
+{
+	int scoreH = 0;
+	if (assets.scoreHud)	scoreH = assets.scoreHud->height;
+	const int labelX = game.HUD_X;
+	const int labelY = HUD::kScoreY + scoreH + HUD::kTpMarginY;
+	//	ACTIVE中は何も書かない
+	if (game.tpActive)
+	{
+		if (assets.tpCdHud)
+		{
+			DeleteBmp(const_cast<Bmp**>(&assets.tpCdHud));
+			const_cast<GameState&>(game).lastTpCDShown = -1;
+		}
+		return;
+	}
+	//	READY / COOLDOWNのラベル選択
+	Bmp* tpLabel = nullptr;
+	if (game.tpCDTimer > 0)
+	{
+		tpLabel = assets.dash_n_active;
+	}
+	else
+	{
+		tpLabel = assets.dash_ready;
+	}
+	if (tpLabel)	DrawBmp(labelX, labelY, tpLabel, true);
+	//	COOLDOWNの間だけ、残り秒数を右側に表示
+	if (game.tpCDTimer > 0) {}
+	else 
+	{
+		//	READY中は数値を非表示
+		if (assets.tpCdHud)
+		{
+			DeleteBmp(const_cast<Bmp**>(&assets.tpCdHud));
+			const_cast<GameState&>(game).lastTpCDShown = -1;
+		}
+	}
+}
+
+//	武器インベントリ描画
+static void DrawWeaponInventory(const GameState& game, const Assets& assets)
+{
+	//	stage1撃破ラベルの文字列を既存t同じフォントサイズで生成し、幅だけ取得
+	int total = (STAGE1_TARGET_KILL > 0) ? STAGE1_TARGET_KILL : 15;
+	TCHAR txt[32];
+	_stprintf(txt, TEXT("%02d / %02d"), game.stageKillCount, total);
+	int labelW = 0;
+	{
+		if (Bmp* temp = MakeTextBmp(txt, 20))
+		{
+			labelW = temp->width;
+			DeleteBmp(&temp);
+		}
+	}
+	//	ラベルの右端をアンカーにして、さらに少し余白を開けた位置をインベントリの起点とする
+	const int L = HUD::kStageBarL;
+	const int T = HUD::kStageBarT;
+	const int R = L + HUD::kStageBarW;
+	const int labelX = R + HUD::kStagelabelGapX;
+	const int extraOffsetX = (game.stageNo == 1) ? 60 : 0;
+	const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX + extraOffsetX;
+	//const int anchorX = labelX + labelW + HUD::kInvGapFromLabelX;
+	const int anchorY = T;
+	struct IconItem { WeaponType type; Bmp* bmp; };
+	const IconItem items[] = {
+		{WeaponType::Normal,	assets.uiWeaponIconNormal },
+		{WeaponType::ChargeBeam,assets.uiWeaponIconBeam	  },
+		{WeaponType::Spread,	assets.uiWeaponIconSpread },
+	};
+	int y = anchorY;
+	for (const auto& it : items)
+	{
+		if (!it.bmp) continue;
+		DrawBmp(anchorX, y, it.bmp, true);
+		if (it.type == game.currentWeapon && assets.uiWeaponSelectFrame)
+		{
+			DrawBmp(anchorX - HUD::kInvSelectPad, y - HUD::kInvSelectPad, assets.uiWeaponSelectFrame, true);
+		}
+		y += it.bmp->height + HUD::kInvItemGapY;
+	}
+
 }
