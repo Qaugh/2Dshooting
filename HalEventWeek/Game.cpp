@@ -407,7 +407,7 @@ static void Startboss(GameState& game, const Assets& assets)
 	for (int i = 0; i < ENEMY_BULLET_MAX; i++)game.enemyBullets[i].active = false;
 }
 //	ボス戦終了用
-static void EndBossCleanup(GameState& game, const Assets& assets)
+ void EndBossCleanup(GameState& game, const Assets& assets)
 {
 	//	ボス本体
 	game.boss.alive = false;
@@ -1630,7 +1630,7 @@ void Game(GameState& game, Assets& assets)
 					PlaySE(L"sound\\se\\beep.mp3");
 					if (game.playerHP <= 0)
 					{
-						EndBossCleanup(game, assets);
+						EndBossCleanup(game);
 						game.scene = Scene::GameOver;
 						return;
 					}
@@ -1686,7 +1686,7 @@ void Game(GameState& game, Assets& assets)
 						if (game.boss.hp <= 0)
 						{
 							game.boss.hp    = 0;
-							EndBossCleanup(game,assets);
+							EndBossCleanup(game);
 							//	ボス撃破スコア追加
 							game.score += BOSS_CLEAR_BONUS;
 							game.lastScoreHud = -1;
